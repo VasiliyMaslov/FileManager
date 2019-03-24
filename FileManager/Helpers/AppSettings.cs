@@ -3,7 +3,7 @@ namespace FileManager.Helpers
 {
     public class AppSettings
     {
-        // ключ, по которому будет сгенерирован токен, находится в аппсеттингс.джесон
+        // ключ, по которому будет сгенерирован токен
         public string Secret { get; set; }
     }
 }

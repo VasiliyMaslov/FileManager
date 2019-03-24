@@ -8,7 +8,6 @@ using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using FileManager.Entities;
 using FileManager.Helpers;
-using System.Diagnostics;
 using Microsoft.Extensions.Logging;
 using System.Text.RegularExpressions;
 
@@ -20,7 +19,7 @@ namespace FileManager.Services
         IEnumerable<User> GetAll();
         User GetById(int id);
         User Create(User user, string password, out string exception);
-        //void AddBasicCatalog(int id);
+        void AddBasicCatalog(User user);
         void Update(User userParam, out string exception, string password = null);
         void Delete(int id, out string exception);
     }
@@ -79,13 +78,13 @@ namespace FileManager.Services
                     new Claim(ClaimTypes.Role, user.Role)
                     }),
                     // здесь можно изменить время на addminutes, действует почти как время сессии
-                    Expires = DateTime.UtcNow.AddMinutes(20),
+                    Expires = DateTime.UtcNow.AddMinutes(900),
                     SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(key), SecurityAlgorithms.HmacSha256Signature)
                 };
 
                 var token = tokenHandler.CreateToken(tokenDescriptor);
                 user.Token = tokenHandler.WriteToken(token);
-                
+
             }
             catch { exception = "Произошла внутренняя ошибка сервера. For developers: TokenGenerate"; }
             if (login == user.login)
@@ -126,13 +125,13 @@ namespace FileManager.Services
 
             if (_context.Users.Any(x => x.login == user.login))
                 exception = $"Пользователь с логином {user.login} уже существует";
-            
+
             if (string.IsNullOrWhiteSpace(user.name))
                 exception = "Введите имя";
 
             if (string.IsNullOrWhiteSpace(user.secondName))
                 exception = "Введите фамилию";
-            
+
             if (exception == null)
             {
                 CreatePasswordHash(password, out byte[] passwordHash, out byte[] HashKey, out string localExpt);
@@ -152,39 +151,32 @@ namespace FileManager.Services
             return user;
         }
 
-        //public void AddBasicCatalog(int id)
-        //{
-        //    var obj = new Objects
-        //    {
-        //        objectName = "Каталог",
-        //        right = 1,
-        //        left = 0,
-        //        type = 1,
-        //        userId = id
-        //    };
+        public void AddBasicCatalog(User user)
+        {
+            var obj = new Objects
+            {
+                objectName = "Каталог",
+                right = 1,
+                left = 0,
+                type = true,
+                level = 0,
+                userId = user.userId
+            };
+            _context.Objects.Add(obj);
+            _context.SaveChanges();
 
-        //    try
-        //    {
-        //        _context.Objects.Add(obj);
-        //        _context.SaveChanges();
+            var permissions = new Permissions
+            {
+                parentUserId = user.userId,
+                childUserId = user.userId,
+                read = true,
+                write = true,
+                objectId = obj.objectId
+            };
 
-        //        var permissions = new Permissions
-        //        {
-        //            parentUserId = id,
-        //            read = 1,
-        //            write = 1,
-        //            objectId = _context.Objects
-        //            .Single(c => (id == c.userId) && (obj.right == 1) && (obj.left == 0)).objectId
-        //        };
-
-        //        _context.Add(obj);
-        //        _context.SaveChanges();
-        //    }
-        //    catch(Exception e)
-        //    {
-        //        _logger.LogError(e.Message);
-        //    }
-        //}
+            _context.Permissions.Add(permissions);
+            _context.SaveChanges();
+        }
 
         public void Update(User userParam, out string exception, string password = null)
         {
@@ -206,7 +198,7 @@ namespace FileManager.Services
                 else
                     user.login = userParam.login;
             }
-            
+
             if (!string.IsNullOrWhiteSpace(userParam.name))
                 user.name = userParam.name;
 

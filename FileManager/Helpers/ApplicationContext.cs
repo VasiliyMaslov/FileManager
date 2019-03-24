@@ -10,7 +10,7 @@ namespace FileManager.Helpers
         {}
 
         public DbSet<User> Users { get; set; }
-        //public DbSet<Objects> Objects { get; set; }
-        //public DbSet<Permissions> Permissions { get; set; }
+        public DbSet<Objects> Objects { get; set; }
+        public DbSet<Permissions> Permissions { get; set; }
     }
 }

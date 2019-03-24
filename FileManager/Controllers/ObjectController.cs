@@ -1,14 +1,16 @@
-﻿using FileManager.Entities;
+﻿using FileManager.Dtos;
+using FileManager.Entities;
 using FileManager.Helpers;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
-using static System.Convert;
 
 namespace FileManager.Controllers
 {
@@ -17,280 +19,730 @@ namespace FileManager.Controllers
     [Route("api/catalog")]
     public class ObjectController : ControllerBase
     {
-        //private ApplicationContext _context;
-        //private readonly long max_size;
-        //private List<string> suffixes = new List<string> { " Б", " КБ", " МБ", " ГБ" };
+        private ApplicationContext _context;
+        private readonly long max_size;
 
-        //public ObjectController(ApplicationContext context)
-        //{
-        //    _context = context;
-        //    max_size = 21474836480;
-        //}
+        private readonly ILogger _logger;
 
-        //// Загрузка файла
-        //[HttpPost, Route("upload_file")]
-        //[RequestSizeLimit(22548578304)] // ограничение веса запроса 21 гб
-        //// objId - ИД директории
-        //public async Task<IActionResult> Upload(IFormFile file, int objId, int parentUserID, int childUserID = default(int))
-        //{
-        //    var directory = _context.Objects
-        //        .Single(c => (parentUserID == c.userId) &&
-        //        (ToBoolean(c.type) == true) && (c.objectId == objId));
+        public ObjectController(ApplicationContext context, ILogger<ObjectController> logger)
+        {
+            _logger = logger;
+            _context = context;
+            max_size = 21474836480;
+        }
 
-        //    if (CheckPermissions(directory, objId, parentUserID, childUserID) == false)
-        //        return BadRequest(new { message = "Недостаточно прав" });
+        // Загрузка файла
+        [HttpPost, Route("upload_file")]
+        [RequestSizeLimit(22548578304)] // ограничение веса запроса 21 гб
+        public async Task<IActionResult> Upload([FromForm(Name = "file")]IFormFileCollection file,
+            [FromForm(Name = "objId")]int directoryId)
+        {
+            try
+            {
+                var directory = _context.Objects
+                .Single(c => int.Parse(User.Identity.Name) == c.userId && c.objectId == directoryId && c.type == true);
 
-        //    if (file == null || file.Length == 0)
-        //        return Content("Файл не выбран");
-        //    if (file.FileName.Length >= 50)
-        //        return Content("Название файла должно быть меньше 50-ти символов");
-        //    if (file.Length > max_size)
-        //        return Content("Размер файла не должен превышать 20 Гб");
-        //    var objects = (IEnumerable<Objects>)_context.Objects
-        //        .Select(c => (parentUserID == c.userId) && (ToBoolean(c.type) == false));
+                if (CheckWriteAllow(directory, directoryId, int.Parse(User.Identity.Name)) == false)
+                    return BadRequest(new { message = "Недостаточно прав" });
 
-        //    int size_files = 0;
-        //    foreach (var x in objects)
-        //        size_files += x.binaryData.Length;
+                foreach (var f in file)
+                {
+                    if (f == null)
+                        return Content("Файл не выбран");
+                    if (f.FileName.Length >= 50)
+                        return Content("Название файла должно быть меньше 50-ти символов");
+                    if (f.Length > max_size)
+                        return Content("Размер файла не должен превышать 20 Гб");
+                    var objects = from t in _context.Objects
+                                  where int.Parse(User.Identity.Name) == t.userId && t.type == false
+                                  select t;
 
-        //    var available_size = max_size - size_files;
+                    int size_files = 0;
+                    foreach (var x in objects)
+                        size_files += x.binaryData.Length;
 
-        //    if ((available_size - file.Length) <= 0)
-        //        return Content("Недостаточно места");
+                    var available_size = max_size - size_files;
 
-        //    Objects obj = new Objects();
+                    if ((available_size - f.Length) <= 0)
+                        return Content("Недостаточно места");
 
-        //    using (var memoryStream = new MemoryStream())
-        //    {
-        //        await file.CopyToAsync(memoryStream);
-        //        obj.binaryData = memoryStream.ToArray();
-        //    }
-        //    obj.objectName = file.FileName;
-        //    obj.userId = parentUserID;
-        //    obj.type = 0;
-        //    obj.right = directory.right;
-        //    obj.left = directory.left;
+                    Objects obj = new Objects();
 
-        //    try
-        //    {
-        //        _context.Objects.Add(obj);
-        //        _context.SaveChanges();
+                    using (var memoryStream = new MemoryStream())
+                    {
+                        await f.CopyToAsync(memoryStream);
+                        obj.binaryData = memoryStream.ToArray();
+                    }
+                    obj.objectName = f.FileName;
+                    obj.userId = int.Parse(User.Identity.Name);
+                    obj.type = false;
+                    obj.left = directory.right;
+                    obj.right = directory.right + 1;
+                    obj.level = directory.level + 1;
+                    foreach (var t in _context.Objects)
+                    {
+                        if (t.left >= obj.left)
+                            t.left += 2;
+                        if (t.right >= obj.left && t.objectId != obj.objectId)
+                            t.right += 2;
+                        _context.Objects.Update(t);
+                    }
 
-        //        var permissions = new Permissions
-        //        {
-        //            parentUserId = parentUserID,
-        //            childUserId = childUserID == default(int) ? default(int) : childUserID,
-        //            read = 1,
-        //            write = 1,
-        //            objectId = _context.Objects
-        //            .Single(c => (parentUserID == c.userId) &&
-        //            (obj.left == directory.left) && (obj.right == directory.right)).objectId
-        //        };
+                    _context.Objects.Add(obj);
+                    //_context.SaveChanges();
 
-        //        _context.Permissions.Add(permissions);
-        //        _context.SaveChanges();
-        //    }
-        //    catch (Exception e)
-        //    {
-        //        return BadRequest(new { e.Message });
-        //    }
+                    var permissions = new Permissions
+                    {
+                        parentUserId = int.Parse(User.Identity.Name),
+                        childUserId = int.Parse(User.Identity.Name),
+                        read = true,
+                        write = true,
+                        objectId = obj.objectId
+                    };
 
-        //    return Ok($"Файл {obj.objectName} загружен");
-        //}
+                    _context.Permissions.Add(permissions);
+                }
+                _context.SaveChanges();
 
+                List<string> files = new List<string>();
+                foreach (var x in file)
+                    files.Add(x.FileName);
 
+                string loc = null;
 
+                for (int i = 0; i < files.Count(); i++)
+                {
+                    loc += files[i];
+                    if (i < files.Count() - 1)
+                        loc += ", ";
+                }
 
-        //[HttpGet, Route("download")]
-        //[RequestSizeLimit(22548578304)] // ограничение веса запроса 21 гб
-        //public IActionResult Download(int objId, int parentUserID, int childUserID = default(int))
-        //{
-        //    var directory = _context.Objects
-        //        .Single(c => (parentUserID == c.userId) &&
-        //        (ToBoolean(c.type) == true) && (c.objectId == objId));
+                return Ok($"Файлы {loc} загружены");
+            }
+            catch (Exception e)
+            {
+                return BadRequest(new { e.Message });
+            }
+        }
+        
+        [HttpGet, Route("download")]
+        [RequestSizeLimit(22548578304)] // ограничение веса запроса 21 гб
+        public IActionResult Download(int fileId)
+        {
+            var obj = _context.Objects
+                .Single(c => (int.Parse(User.Identity.Name) == c.userId) &&
+                (c.type == false) && (c.objectId == fileId));
 
-        //    if (CheckPermissions(directory, objId, parentUserID, childUserID) == false)
-        //        return BadRequest(new { message = "Недостаточно прав" });
+            var directory = _context.Objects
+                .Single(c => (int.Parse(User.Identity.Name) == c.userId) &&
+                (c.type == true) && (c.left == obj.left) && (c.right == obj.right));
 
-        //    var obj = _context.Objects
-        //        .Single(c => (parentUserID == c.userId) &&
-        //        (ToBoolean(c.type) == false) && (directory.objectId == objId));
+            if (CheckWriteAllow(directory, fileId, int.Parse(User.Identity.Name)) == false)
+                return BadRequest(new { message = "Недостаточно прав" });
 
-        //    return Ok(File(obj.binaryData, GetContentType(obj.objectName), Path.GetFileName(obj.objectName)));
-        //}
-
-
-        //[HttpPost, Route("create_directory")]
-        //public IActionResult CreateDirectory(string name, int objId, int parentUserID, int childUserID = default(int))
-        //{
-
-        //    var directory = _context.Objects
-        //        .Single(c => (parentUserID == c.userId) &&
-        //        (ToBoolean(c.type) == true) && (c.objectId == objId));
-
-        //    if (CheckPermissions(directory, objId, parentUserID, childUserID) == false)
-        //        return BadRequest(new { message = "Недостаточно прав" });
-
-        //    int left_root = directory.right;
-
-        //    var catalog = (IEnumerable<Objects>)_context.Objects
-        //        .Select(c => (parentUserID == c.userId) &&
-        //        (ToBoolean(c.type) == true) && (c.left > directory.left) && (c.right > directory.right));
-
-        //    foreach (var x in catalog)
-        //    {
-        //        x.right += 2;
-        //        x.left += 2;
-        //        _context.Objects.Update(x);
-        //    }
-
-        //    var obj = new Objects
-        //    {
-        //        objectName = name,
-        //        left = left_root,
-        //        right = left_root + 1,
-        //        type = 1,
-        //        userId = parentUserID
-        //    };
-
-        //    try
-        //    {
-        //        _context.Objects.Add(obj);
-        //        _context.SaveChanges();
-
-        //        var permissions = new Permissions
-        //        {
-        //            parentUserId = parentUserID,
-        //            childUserId = childUserID == default(int) ? default(int) : childUserID,
-        //            read = 1,
-        //            write = 1,
-        //            objectId = _context.Objects
-        //           .Single(c => (parentUserID == c.userId) &&
-        //           (obj.left == directory.left) && (obj.right == directory.right)).objectId
-        //        };
-
-        //        _context.Permissions.Add(permissions);
-        //        _context.SaveChanges();
-        //    }
-        //    catch (Exception e)
-        //    {
-        //        return BadRequest(new { e.Message });
-        //    }
-
-        //    return Ok($"Директория {obj.objectName} успешно создана");
-        //}
+            return Ok(File(obj.binaryData, GetContentType(obj.objectName), Path.GetFileName(obj.objectName)));
+        }
 
 
-        //[HttpPut, Route("relocate")]
-        //public IActionResult Relocate(int objId, int objId_new, int parentUserID, int childUserID = default(int))
-        //{
-        //    var directory_this = _context.Objects
-        //        .Single(c => (parentUserID == c.userId) &&
-        //        (ToBoolean(c.type) == true) && (c.objectId == objId));
+        [HttpPost, Route("create_directory")]
+        // принимает objectId (директория, в которой сейчас юзер), objectName (назв. новой директории)
+        public IActionResult CreateDirectory([FromBody]ObjectDto objectDto)
+        {
+            try
+            {
+                var directory = _context.Objects
+                .Single(c => (int.Parse(User.Identity.Name) == c.userId) &&
+                (c.type == true) && (c.objectId == objectDto.objectId));
 
-        //    var directory_new = _context.Objects
-        //        .Single(c => (parentUserID == c.userId) && (c.objectId == objId_new));
+                if (CheckWriteAllow(directory, objectDto.objectId, int.Parse(User.Identity.Name)) == false)
+                    return BadRequest(new { message = "Недостаточно прав" });
 
-        //    if (CheckPermissions(directory_new, objId, parentUserID, childUserID) == false)
-        //        return BadRequest(new { message = "Недостаточно прав" });
+                var obj = new Objects
+                {
+                    objectName = objectDto.objectName,
+                    left = directory.right,
+                    right = directory.right + 1,
+                    level = directory.level + 1,
+                    type = true,
+                    userId = int.Parse(User.Identity.Name)
+                };
 
-        //    int left_root = directory_this.right;
+                foreach (var t in _context.Objects)
+                {
+                    if (t.left >= obj.left)
+                        t.left += 2;
+                    if (t.right >= obj.left && t.objectId != obj.objectId)
+                        t.right += 2;
+                    _context.Objects.Update(t);
+                }
+                
+                _context.Objects.Add(obj);
+                _context.SaveChanges();
 
-        //    var catalog = (IEnumerable<Objects>)_context.Objects
-        //        .Select(c => (parentUserID == c.userId) &&
-        //        (ToBoolean(c.type) == true) && (c.left > directory.left) && (c.right > directory.right));
+                var permissions = new Permissions
+                {
+                    parentUserId = int.Parse(User.Identity.Name),
+                    childUserId = int.Parse(User.Identity.Name),
+                    read = true,
+                    write = true,
+                    objectId = obj.objectId
+                };
 
-        //    foreach (var x in catalog)
-        //    {
-        //        x.right += 2;
-        //        x.left += 2;
-        //        _context.Objects.Update(x);
-        //    }
+                _context.Permissions.Add(permissions);
+                _context.SaveChanges();
+
+                return Ok($"Директория {obj.objectName} успешно создана");
+            }
+            catch (Exception e)
+            {
+                return BadRequest(new { e.Message });
+            }
+        }
+        
+        [HttpPut, Route("relocate")]
+        [RequestSizeLimit(22548578304)] // ограничение веса запроса 21 гб
+        // принимает objectId (директория, которую переместить), objId_new (куда переместить)
+        public IActionResult Relocate([FromBody]ObjectDto objectDto)
+        {
+            try
+            {
+                var directory_this = _context.Objects
+                .Single(c => (int.Parse(User.Identity.Name) == c.userId) &&
+                (c.objectId == objectDto.objectId));
+
+                var catalog = from c in _context.Objects
+                              where (int.Parse(User.Identity.Name) == c.userId)
+                              && c.left >= directory_this.left && c.right <= directory_this.right
+                              orderby c.right
+                              select c;
+
+                var directory_new = _context.Objects
+                .Single(c => (int.Parse(User.Identity.Name) == c.userId) && (c.objectId == objectDto.objId_new));
+
+                if (CheckWriteAllow(directory_new, objectDto.objectId, int.Parse(User.Identity.Name)) == false)
+                    return BadRequest(new { message = "Недостаточно прав" });
+
+                List<Objects> obj_relocate = new List<Objects>();
+                foreach (var x in catalog)
+                    obj_relocate.Add(x);
+
+                var obj = from i in _context.Objects
+                          select i;
+
+                List<Objects> obj_unrelocate = new List<Objects>();
+                foreach (var x in obj)
+                    obj_unrelocate.Add(x);
+
+                foreach (var x in obj_relocate)
+                {
+                    foreach (var t in obj_unrelocate)
+                    {
+                        if (obj_relocate.Contains(t) == false)
+                        {
+                            if (t.left > x.right)
+                                t.left -= 2;
+                            if (t.right > x.right)
+                                t.right -= 2;
+                        }
+                    }
+
+                    foreach (var r in obj_relocate)
+                    {
+                        r.left -= 2;
+                        r.right -= 2;
+                    }
+                }
+
+                obj_relocate = obj_relocate.OrderBy(c => c.left).ToList();
+                
+                List<Objects> obj_level = new List<Objects>();
+                int m = 0;
+                foreach (var x in obj_relocate)
+                {
+                    if (m == 0)
+                        x.level = directory_new.level + 1;
+                    m = 2;
+                    obj_level.Add(x);
+                    foreach (var r in obj_relocate)
+                    {
+                        if (obj_level.Contains(r) == false && x.level != r.level)
+                            r.level = x.level + 1;
+                    }
+                }
+
+                foreach (var x in obj_relocate)
+                {
+                    x.left = directory_new.right;
+                    x.right = directory_new.right + 1;
+
+                    foreach (var t in obj_unrelocate)
+                    {
+                        if (t.left >= directory_new.right)
+                            t.left += 2;
+                        if (t.right >= directory_new.right && t.objectId != x.objectId)
+                            t.right += 2;
+                    }
+
+                    if (directory_new.level != x.level)
+                        directory_new = x;
+
+                    obj_unrelocate.Append(x);
+                }
+
+                _context.Objects.UpdateRange(obj_unrelocate);
+                _context.SaveChanges();
+            }
+            catch (Exception e)
+            {
+                return BadRequest(new { e.Message });
+            }
+
+            return Ok($"Перемещение выполнено");
+        }
+
+        [HttpPut, Route("rename")]
+        [RequestSizeLimit(22548578304)] // ограничение веса запроса 21 гб
+        // принимает objectId, objectName
+        public IActionResult Rename([FromBody]ObjectDto objectDto)
+        {
+            try
+            {
+                var obj = _context.Objects
+                .Single(c => (int.Parse(User.Identity.Name) == c.userId) &&
+                (c.objectId == objectDto.objectId));
+
+                if (CheckWriteAllow(obj, objectDto.objectId, int.Parse(User.Identity.Name)) == false)
+                    return BadRequest(new { message = "Недостаточно прав" });
+
+                string name_pattern = @"^[a-zA-Z0-9\s]{2,50}$";
+
+                if (string.IsNullOrWhiteSpace(objectDto.objectName))
+                    return BadRequest(new { message = "Вы забыли ввести логин и/или пароль" });
+
+                if (!Regex.IsMatch(objectDto.objectName, name_pattern, RegexOptions.IgnoreCase))
+                    return BadRequest(new { message = "Допустимая длина от 2 до 50 символов" });
+
+                if (obj.type == true)
+                    obj.objectName = objectDto.objectName;
+                if (obj.type == false)
+                    obj.objectName = objectDto.objectName + Path.GetExtension(obj.objectName).ToLowerInvariant();
+
+                _context.Objects.Update(obj);
+                _context.SaveChanges();
+                return Ok($"Данный объект переименован в {obj.objectName}");
+            }
+            catch (Exception e)
+            {
+                return BadRequest(new { e.Message });
+            }
+        }
+
+        [HttpDelete, Route("delete")]
+        [RequestSizeLimit(22548578304)] // ограничение веса запроса 21 гб
+        // принимает objectId (либо файл, либо директория)
+        public IActionResult Delete([FromBody]ObjectDto objectDto)
+        {
+            try
+            {
+                //_logger.LogError($"111111111111111111111111   {obj.Count()}");
+                var directory_this = _context.Objects
+                    .Single(c => (int.Parse(User.Identity.Name) == c.userId) &&
+                    (c.objectId == objectDto.objectId));
+
+                var catalog = from c in _context.Objects
+                              where (int.Parse(User.Identity.Name) == c.userId)
+                              && c.left >= directory_this.left && c.right <= directory_this.right
+                              select c;
+
+                if (CheckWriteAllow(directory_this, objectDto.objectId, int.Parse(User.Identity.Name)) == false)
+                    return BadRequest(new { message = "Недостаточно прав" });
+
+                var permissions = from p in _context.Permissions
+                                  select p;
+
+                var obj = from i in _context.Objects
+                          select i;
+
+                List<Permissions> delete_permissions = new List<Permissions>();
+                List<Objects> obj_undelete = new List<Objects>();
+                List<Objects> obj_delete = new List<Objects>();
+
+                foreach (var x in catalog)
+                {
+                    obj_delete.Add(x);
+
+                    foreach (var p in permissions)
+                        if (x.objectId == p.objectId)
+                            delete_permissions.Add(p);
+                }
+
+                obj_delete = obj_delete.OrderBy(c => c.right).ToList();
+
+                foreach (var ob in obj_delete)
+                    _logger.LogError($"elet obj    {ob.objectId}     {ob.left}     {ob.right}");
+
+                foreach (var ob in obj)
+                    obj_undelete.Add(ob);
+
+                _logger.LogError($"delet obj    {obj_delete.Count()}");
+                _logger.LogError($"undelet obj    {obj_undelete.Count()}");
+                _logger.LogError($"perm    {delete_permissions.Count()}");
+
+                foreach (var x in obj_delete)
+                {
+                    foreach (var c in obj_undelete)
+                    {
+                        if (c.left > x.left)
+                            c.left -= 2;
+                        if (c.right > x.right)
+                            c.right -= 2;
+                    }
+                }
+
+                foreach (var ob in obj_undelete)
+                    _logger.LogError($"undelet obj    {ob.objectId}     {ob.left}     {ob.right}");
+
+                _context.Objects.UpdateRange(obj_undelete);
+                _context.Permissions.RemoveRange(delete_permissions);
+                _context.Objects.RemoveRange(obj_delete);
+                _context.SaveChanges();
+
+                return Ok($"Объект или группа объектов успешно удалены");
+            }
+            catch (Exception e)
+            {
+                return BadRequest(new { e.Message });
+            }
+        }
+        
+        [HttpPost, Route("add_permission")]
+        [RequestSizeLimit(22548578304)] // ограничение веса запроса 21 гб
+        // принимает objectId (объект, на который дать права), массив logins (список логинов, которым дать права)
+        public IActionResult AddPermission([FromForm(Name = "objectId")]int objectId,
+            [FromForm(Name = "logins")]string[] logins, [FromForm(Name = "read")]bool read,
+            [FromForm(Name = "write")]bool write)
+        {
+            try
+            {
+                foreach (var login in logins)
+                {
+                    var user_this = _context.Users
+                .Single(up => login == up.login);
+
+                    var perm = from p in _context.Permissions
+                               where p.childUserId == user_this.userId
+                               select p;
+                    _context.Permissions.RemoveRange(perm);
+                }
+                
+                var obj_this = _context.Objects
+                .Single(ob => ob.objectId == objectId);
+
+                // не должно выводиться, т.к. подразумевается, что юзер, дающий разрешения - итак владелец
+                if (obj_this.userId != int.Parse(User.Identity.Name))
+                    return BadRequest(new { message = "Вы не являетесь владельцем файла" });
+
+                var user_parent = _context.Users
+                .Single(up => int.Parse(User.Identity.Name) == up.userId);
+
+                var catalog = from c in _context.Objects
+                              where (c.left <= obj_this.left && c.right >= obj_this.right && c.level <= obj_this.level) ||
+                              (c.left > obj_this.left && c.right < obj_this.right)
+                              select c;
+
+                List<Permissions> permissions = new List<Permissions>();
+
+                string users = null;
+
+                if (read == true && write != true)
+                    users += "чтение";
+                if (write == true && read != true)
+                    users += "запись";
+                if (write == true && read == true)
+                    users += "чтение и запись";
+                users += " для пользователей ";
+                foreach (var login in logins)
+                {
+                    var user_this = _context.Users
+                .Single(up => login == up.login);
+
+                    foreach (var c in catalog)
+                    {
+                        permissions.Add(
+                            new Permissions
+                            {
+                                parentUserId = int.Parse(User.Identity.Name),
+                                childUserId = user_this.userId,
+                                read = read,
+                                write = write,
+                                objectId = c.objectId
+                            });
+                    }
+                }
+                for (int i = 0; i < logins.Count(); i++)
+                {
+                    users += logins[i];
+                    if (i < logins.Count() - 1)
+                        users += ", ";
+                }
+
+                _context.Permissions.AddRange(permissions);
+                _context.SaveChanges();
+
+                return Ok($"Вы предоставили разрешения на {users}. Открыт доступ для {catalog.Count()} объектов");
+            }
+            catch (Exception e)
+            {
+                return BadRequest(new { e.Message });
+            }
+        }
+
+        [HttpGet, Route("get_objects")]
+        [RequestSizeLimit(22548578304)] // ограничение веса запроса 21 гб
+        // При открытии какой-либо директории, должен передаваться ее objId.
+        // Можно не указывать ТОЛЬКО при регистрации, т.е. пользователю итак вернется базовый каталог
+        public IActionResult GetObjects(int objId)
+        {
+            try
+            {
+                Objects this_dir = null;
+                if (objId == default(int))
+                {
+                    this_dir = _context.Objects
+                    .Single(c => (int.Parse(User.Identity.Name) == c.userId) &&
+                    (c.left == 0) && (c.level == 0));
+                }
+                else
+                {
+                    this_dir = _context.Objects.Single(c => c.objectId == objId);
+                }
+
+                var permission = _context.Permissions
+                    .Single(c => int.Parse(User.Identity.Name) == c.childUserId &&
+                     this_dir.objectId == c.objectId);
+                if (permission.read != true)
+                    return BadRequest(new { message = "Недостаточно прав" });
+
+                var user = _context.Users.Single(u => u.userId == this_dir.userId);
+
+                var catalog = from c in _context.Objects
+                              where c.level == (this_dir.level + 1) && c.left > this_dir.left && c.right < this_dir.right
+                              select c;
+
+                //if (catalog.Count() == 0)
+                //    catalog = from c in _context.Objects
+                //              where c.left == this_dir.left && c.right == this_dir.right
+                //              select c;
+
+                List<object> format_description = new List<object>();
+                foreach (var x in catalog)
+                {
+                    if (x.type == true)
+                        format_description.Add(new
+                        {
+                            x.objectId,
+                            x.objectName,
+                            x.type,
+                            user.login
+                        });
+
+                    if (x.type == false)
+                        format_description.Add(new
+                        {
+                            x.objectId,
+                            x.objectName,
+                            weigh = Funct(x.binaryData.LongLength),
+                            x.type,
+                            user.login
+                        });
+                }
+
+                string Funct(long param)
+                {
+                    string local_var = "";
+
+                    if (param < 1024)
+                        local_var = param.ToString() + " Б";
+                    if (param >= 1024 && param < 1048576)
+                        local_var = Math.Round((double)param / 1024, 2) + " Кб";
+                    if (param >= 1048576 && param < 1073741824)
+                        local_var = Math.Round((double)param / 1048576, 2) + " Мб";
+                    if (param >= 1073741824 && param < 22548578304)
+                        local_var = Math.Round((double)param / 1073741824, 2) + " Гб";
+
+                    return local_var;
+                }
+
+                return Ok(format_description);
+            }
+            catch (Exception e)
+            {
+                return BadRequest(new { e.Message });
+            }
+        }
+
+        [HttpGet, Route("added_users")]
+        [RequestSizeLimit(22548578304)] // ограничение веса запроса 21 гб
+        // Вывод списка пользователей, которым предоставлены разрешения на файл
+        public IActionResult AddedUsers(int objId)
+        {
+            try
+            {
+                Objects this_dir = null;
+                this_dir = _context.Objects.Single(c => c.objectId == objId);
+
+                if (int.Parse(User.Identity.Name) != this_dir.userId)
+                    return BadRequest(new { message = "Недостаточно прав" });
+
+                var permission = from p in _context.Permissions
+                                 where p.objectId == objId
+                                 select p;
+
+                List<object> format_description = new List<object>();
+                foreach (var x in permission)
+                {
+                    format_description.Add(new
+                    {
+                        _context.Users.Single(c => c.userId == x.childUserId).login,
+                        x.read,
+                        x.write
+                    });
+                }
+
+                return Ok(format_description);
+            }
+            catch (Exception e)
+            {
+                return BadRequest(new { e.Message });
+            }
+        }
+
+        [HttpDelete, Route("remove_permissions")]
+        [RequestSizeLimit(22548578304)] // ограничение веса запроса 21 гб
+        // принимает login, objectId (тот, на который права нужно отозвать
+        // забирает любые права на объект и дочерние объекты у данного пользователя
+        public IActionResult RemovePermissions([FromBody]UserDto userDto)
+        {
+            try
+            {
+                var user_this = _context.Users
+                .Single(up => userDto.login == up.login);
+
+                var obj_this = _context.Objects
+                .Single(ob => ob.objectId == userDto.objectId);
+
+                if (int.Parse(User.Identity.Name) != obj_this.userId)
+                    return BadRequest(new { message = "Недостаточно прав" });
+
+                var catalog = from c in _context.Objects
+                              where c.left >= obj_this.left && c.right <= obj_this.right
+                              select c;
+                List<Permissions> permissions = new List<Permissions>();
+
+                foreach (var x in catalog)
+                {
+                    var perm = _context.Permissions.Single(p => p.childUserId == user_this.userId && p.objectId == x.objectId);
+                    permissions.Add(perm);
+                }
+
+                _context.Permissions.RemoveRange(permissions);
+                _context.SaveChanges();
+
+                return Ok($"У пользователя с логином {userDto.login} были удалены права на {obj_this.objectName} и дочерние объекты");
+            }
+            catch (Exception e)
+            {
+                return BadRequest(new { e.Message });
+            }
+        }
+
+        [HttpGet, Route("storage_size")]
+        [RequestSizeLimit(22548578304)] // ограничение веса запроса 21 гб
+        public IActionResult CheckSizeStorage()
+        {
+            var objects = from t in _context.Objects
+                          where (int.Parse(User.Identity.Name) == t.userId) && (t.type == false)
+                          select t;
+
+            long size_files = 0;
+            foreach (var x in objects)
+                size_files += x.binaryData.LongLength;
+            
+            string Funct(long param)
+            {
+                string local_var = "";
+
+                if (param < 1024)
+                    local_var = param.ToString() + " Б";
+                if (param >= 1024 && param < 1048576)
+                    local_var = Math.Round((double)param / 1024, 2) + " Кб";
+                if (param >= 1048576 && param < 1073741824)
+                    local_var = Math.Round((double)param / 1048576, 2) + " Мб";
+                if (param >= 1073741824 && param < 22548578304)
+                    local_var = Math.Round((double)param / 1073741824, 2) + " Гб";
+
+                return local_var;
+            }
+
+            return Ok($"Использовано {Funct(size_files)}. Доступно {Funct(max_size - size_files)}");
+        }
+
+        private string GetContentType(string path)
+        {
+            var types = new Dictionary<string, string>
+            {
+                {".txt", "text/plain"},
+                {".pdf", "application/pdf"},
+                {".doc", "application/vnd.ms-word"},
+                {".docx", "application/vnd.ms-word"},
+                {".xls", "application/vnd.ms-excel"},
+                {".xlsx", "application/vnd.openxmlformatsofficedocument.spreadsheetml.sheet"},
+                {".png", "image/png"},
+                {".jpg", "image/jpeg"},
+                {".jpeg", "image/jpeg"},
+                {".gif", "image/gif"},
+                {".csv", "text/csv"},
+                {".mp4", "video/mp4" },
+                {".mp3", "audio/mpeg"},
+
+                {"", "application/octet-stream"},
+                {".ogg", "application/ogg"},
+                {".pdf", "application/pdf"},
+                {".zip", "application/zip"},
+                {".xml", "application/xml"},
+                {".wav", "audio/vnd.wave"},
 
 
+                {".svg", "image/svg+xml"},
+                {".ico", "image/vnd.microsoft.icon"},
+                {".css", "text/css"},
+                {".html", "text/html"},
+                {".3gp", "video/3gpp"},
+                {".webm", "video/webm"}
 
-        //    try
-        //    {
-        //        _context.Objects.Update(obj);
-        //        _context.SaveChanges();
+            };
+            var ext = Path.GetExtension(path).ToLowerInvariant();
+            return types[ext];
+        }
 
-        //    }
-        //    catch (Exception e)
-        //    {
-        //        return BadRequest(new { e.Message });
-        //    }
+        private bool CheckWriteAllow(Objects directory, int objId, int UserID_this)
+        {
+            var catalog = from x in _context.Objects
+                          where (directory.userId == x.userId) &&
+                          (x.type == true) && (x.level <= directory.level) && (x.right >= directory.right)
+                          && (x.left <= directory.left)
+                          select x;
 
-        //    return Ok($"Директория  успешно создана");
-        //}
+            foreach (var x in catalog)
+            {
+                var permission = _context.Permissions
+                    .Single(c => UserID_this == c.childUserId &&
+                     x.objectId == c.objectId);
+                if (permission.write != true)
+                    return false;
+            }
 
-
-        //[HttpGet, Route("storage_size")]
-        //[RequestSizeLimit(22548578304)] // ограничение веса запроса 21 гб
-        //public IActionResult CheckSizeStorage()
-        //{
-        //    var objects = (IEnumerable<Objects>)_context.Objects
-        //        .Select(c => (int.Parse(User.Identity.Name) == c.userId) && (ToBoolean(c.type) == false));
-
-        //    int size_files = 0;
-        //    foreach (var x in objects)
-        //        size_files += x.binaryData.Length;
-
-        //    var available_size = max_size - size_files;
-
-        //    string Funct(long param)
-        //    {
-        //        for (int i = 0; i < suffixes.Count; i++)
-        //        {
-        //            long temp = param / (int)Math.Pow(1024, i + 1);
-        //            if (temp == 0)
-        //                return (param / (int)Math.Pow(1024, i)) + suffixes[i];
-        //        }
-        //        return param.ToString();
-        //    }
-
-        //    return Ok($"Использовано {Funct(size_files)}. Доступно {Funct(available_size)}");
-        //}
-
-        //private string GetContentType(string path)
-        //{
-        //    var types = new Dictionary<string, string>
-        //    {
-        //        {".txt", "text/plain"},
-        //        {".pdf", "application/pdf"},
-        //        {".doc", "application/vnd.ms-word"},
-        //        {".docx", "application/vnd.ms-word"},
-        //        {".xls", "application/vnd.ms-excel"},
-        //        {".xlsx", "application/vnd.openxmlformatsofficedocument.spreadsheetml.sheet"},
-        //        {".png", "image/png"},
-        //        {".jpg", "image/jpeg"},
-        //        {".jpeg", "image/jpeg"},
-        //        {".gif", "image/gif"},
-        //        {".csv", "text/csv"},
-        //        {".mp4", "video/mp4" }
-        //    };
-        //    var ext = Path.GetExtension(path).ToLowerInvariant();
-        //    return types[ext];
-        //}
-
-        //private bool CheckPermissions(Objects directory, int objId, int parentUserID, int childUserID)
-        //{
-        //    if (int.Parse(User.Identity.Name) == childUserID)
-        //    {
-        //        var catalog = (IEnumerable<Objects>)_context.Objects
-        //        .Select(c => (parentUserID == c.userId) &&
-        //        (ToBoolean(c.type) == true) && (c.left <= directory.left) && (c.right >= directory.right));
-
-        //        foreach (var x in catalog)
-        //        {
-        //            var permission = _context.Permissions
-        //                .Single(c => x.userId == c.parentUserId &&
-        //                 x.objectId == c.objectId);
-        //            if (permission.write != 1)
-        //                return false;
-        //        }
-        //    }
-        //    return true;
-        //}
-
+            return true;
+        }
     }
 }

@@ -6,6 +6,8 @@ using Microsoft.AspNetCore.Authorization;
 using FileManager.Services;
 using FileManager.Dtos;
 using FileManager.Entities;
+using FileManager.Helpers;
+using System.Linq;
 
 namespace FileManager.Controllers
 {
@@ -16,11 +18,13 @@ namespace FileManager.Controllers
     {
         private IUserService _userService;
         private IMapper _mapper;
+        private ApplicationContext _context;
 
         public AccountController(
             IUserService userService,
-            IMapper mapper)
+            IMapper mapper, ApplicationContext context)
         {
+            _context = context;
             _userService = userService;
             _mapper = mapper;
         }
@@ -63,8 +67,10 @@ namespace FileManager.Controllers
             if (except != null)
                 return BadRequest(new { message = except });
 
-            //_userService.AddBasicCatalog(int.Parse(User.Identity.Name));
-            
+            _userService.AddBasicCatalog(_context.Users.Single(x =>
+            x.login == userDto.login &&
+            x.name == userDto.name));
+
             return Ok(new
             {
                 user.userId,
@@ -83,7 +89,7 @@ namespace FileManager.Controllers
             var userDtos = _mapper.Map<IList<UserDto>>(users);
             return Ok(userDtos);
         }
-        
+
         [HttpGet("{id}")]
         public IActionResult GetById(int id)
         {
@@ -98,10 +104,10 @@ namespace FileManager.Controllers
             var currentUserId = int.Parse(User.Identity.Name);
             if (id != currentUserId && !User.IsInRole(Role.Admin))
                 return Forbid();
-            
+
             return Ok(userDto);
         }
-        
+
         [HttpPut("{id}")]
         public IActionResult Update(int id, [FromBody]UserDto userDto)
         {
@@ -130,7 +136,6 @@ namespace FileManager.Controllers
         [HttpDelete("{id}")]
         public IActionResult Delete(int id)
         {
-
             var currentUserId = int.Parse(User.Identity.Name);
             if (id != currentUserId && !User.IsInRole(Role.Admin))
                 return Forbid();

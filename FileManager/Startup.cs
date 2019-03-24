@@ -91,7 +91,6 @@ namespace FileManager
 
             app.UseAuthentication();
             app.UseMvc();
-            //app.UseSession();
         }
     }
 }
