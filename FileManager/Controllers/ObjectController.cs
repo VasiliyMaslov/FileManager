@@ -525,36 +525,39 @@ namespace FileManager.Controllers
 
                 var user = _context.Users.Single(u => u.userId == this_dir.userId);
 
-                var catalog = from c in _context.Objects
-                              where c.level == (this_dir.level + 1) && c.left > this_dir.left && c.right < this_dir.right
-                              select c;
+                var catalog = from c in _context.Objects 
+                    where c.level >= this_dir.level && c.left >= this_dir.left && 
+                          c.right <= this_dir.right && c.userId == int.Parse(User.Identity.Name)
+                    select c; 
 
-                //if (catalog.Count() == 0)
-                //    catalog = from c in _context.Objects
-                //              where c.left == this_dir.left && c.right == this_dir.right
-                //              select c;
+                //if (catalog.Count() == 0) 
+                // catalog = from c in _context.Objects 
+                // where c.left == this_dir.left && c.right == this_dir.right 
+                // select c; 
 
-                List<object> format_description = new List<object>();
-                foreach (var x in catalog)
-                {
-                    if (x.type == true)
-                        format_description.Add(new
-                        {
-                            x.objectId,
-                            x.objectName,
-                            x.type,
-                            user.login
-                        });
+                List<object> format_description = new List<object>(); 
+                foreach (var x in catalog) 
+                { 
+                    if (x.type == true) 
+                        format_description.Add(new 
+                        { 
+                            x.objectId, 
+                            x.objectName, 
+                            x.type, 
+                            x.level, 
+                            user.login 
+                        }); 
 
-                    if (x.type == false)
-                        format_description.Add(new
-                        {
-                            x.objectId,
-                            x.objectName,
-                            weigh = Funct(x.binaryData.LongLength),
-                            x.type,
-                            user.login
-                        });
+                    if (x.type == false) 
+                        format_description.Add(new 
+                        { 
+                            x.objectId, 
+                            x.objectName, 
+                            weigh = Funct(x.binaryData.LongLength), 
+                            x.type, 
+                            x.level, 
+                            user.login 
+                        }); 
                 }
 
                 string Funct(long param)
@@ -574,7 +577,7 @@ namespace FileManager.Controllers
                 }
 
                 return Ok(format_description);
-            }
+            }    
             catch (Exception e)
             {
                 return BadRequest(new { e.Message });
