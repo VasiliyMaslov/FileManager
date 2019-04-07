@@ -78,7 +78,7 @@ namespace FileManager.Services
                     new Claim(ClaimTypes.Role, user.Role)
                     }),
                     // здесь можно изменить время на addminutes, действует почти как время сессии
-                    Expires = DateTime.UtcNow.AddMinutes(900),
+                    Expires = DateTime.UtcNow.AddMinutes(20),
                     SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(key), SecurityAlgorithms.HmacSha256Signature)
                 };
 

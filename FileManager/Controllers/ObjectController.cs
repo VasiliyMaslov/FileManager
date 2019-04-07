@@ -34,6 +34,7 @@ namespace FileManager.Controllers
         // Загрузка файла
         [HttpPost, Route("upload_file")]
         [RequestSizeLimit(22548578304)] // ограничение веса запроса 21 гб
+        // Принимает file - просто файл с form-data. objId - директория, в которую загрузить
         public async Task<IActionResult> Upload([FromForm(Name = "file")]IFormFileCollection file,
             [FromForm(Name = "objId")]int directoryId)
         {
@@ -129,6 +130,7 @@ namespace FileManager.Controllers
         
         [HttpGet, Route("download")]
         [RequestSizeLimit(22548578304)] // ограничение веса запроса 21 гб
+        // fileId - ид файла, который скачать
         public IActionResult Download(int fileId)
         {
             var obj = _context.Objects
@@ -621,10 +623,12 @@ namespace FileManager.Controllers
 
         [HttpGet, Route("storage_size")]
         [RequestSizeLimit(22548578304)] // ограничение веса запроса 21 гб
+        // ничего не принимает
         public IActionResult CheckSizeStorage()
         {
+            var userId = int.Parse(User.Identity.Name);
             var objects = from t in _context.Objects
-                          where (int.Parse(User.Identity.Name) == t.userId) && (t.type == false)
+                          where (userId == t.userId) && (t.type == false)
                           select t;
 
             long size_files = 0;
@@ -633,7 +637,7 @@ namespace FileManager.Controllers
 
             return Ok($"Использовано {Funct(size_files)}. Доступно {Funct(max_size - size_files)}");
         }
-        
+        // дальше идут вспомогательные методы
         private string Funct(long param)
         {
             string local_var = "";
