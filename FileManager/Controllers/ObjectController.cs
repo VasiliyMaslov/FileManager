@@ -40,10 +40,18 @@ namespace FileManager.Controllers
             try
             {
                 var directory = _context.Objects
-                .Single(c => int.Parse(User.Identity.Name) == c.userId && c.objectId == directoryId && c.type == true);
+                .Single(c => c.objectId == directoryId && c.type == true);
 
-                if (CheckWriteAllow(directory, directoryId, int.Parse(User.Identity.Name)) == false)
+                if (CheckWriteAllow(directory) == false)
                     return BadRequest(new { message = "Недостаточно прав" });
+
+                var objects = from t in _context.Objects
+                              where directory.userId == t.userId && t.type == false
+                              select t;
+
+                long size_files = 0;
+                foreach (var x in objects)
+                    size_files += x.binaryData.Length;
 
                 foreach (var f in file)
                 {
@@ -53,14 +61,8 @@ namespace FileManager.Controllers
                         return Content("Название файла должно быть меньше 50-ти символов");
                     if (f.Length > max_size)
                         return Content("Размер файла не должен превышать 20 Гб");
-                    var objects = from t in _context.Objects
-                                  where int.Parse(User.Identity.Name) == t.userId && t.type == false
-                                  select t;
 
-                    int size_files = 0;
-                    foreach (var x in objects)
-                        size_files += x.binaryData.Length;
-
+                    size_files += f.Length;
                     var available_size = max_size - size_files;
 
                     if ((available_size - f.Length) <= 0)
@@ -74,16 +76,16 @@ namespace FileManager.Controllers
                         obj.binaryData = memoryStream.ToArray();
                     }
                     obj.objectName = f.FileName;
-                    obj.userId = int.Parse(User.Identity.Name);
+                    obj.userId = directory.userId;
                     obj.type = false;
                     obj.left = directory.right;
                     obj.right = directory.right + 1;
                     obj.level = directory.level + 1;
                     foreach (var t in _context.Objects)
                     {
-                        if (t.left >= obj.left)
+                        if (t.left >= obj.left && t.userId == directory.userId)
                             t.left += 2;
-                        if (t.right >= obj.left && t.objectId != obj.objectId)
+                        if (t.right >= obj.left && t.objectId != obj.objectId && t.userId == directory.userId)
                             t.right += 2;
                         _context.Objects.Update(t);
                     }
@@ -93,7 +95,7 @@ namespace FileManager.Controllers
 
                     var permissions = new Permissions
                     {
-                        parentUserId = int.Parse(User.Identity.Name),
+                        parentUserId = directory.userId,
                         childUserId = int.Parse(User.Identity.Name),
                         read = true,
                         write = true,
@@ -130,19 +132,13 @@ namespace FileManager.Controllers
         public IActionResult Download(int fileId)
         {
             var obj = _context.Objects
-                .Single(c => (int.Parse(User.Identity.Name) == c.userId) &&
-                (c.type == false) && (c.objectId == fileId));
+                .Single(c => (c.type == false) && (c.objectId == fileId));
 
-            var directory = _context.Objects
-                .Single(c => (int.Parse(User.Identity.Name) == c.userId) &&
-                (c.type == true) && (c.left == obj.left) && (c.right == obj.right));
-
-            if (CheckWriteAllow(directory, fileId, int.Parse(User.Identity.Name)) == false)
+            if (CheckReadAllow(obj) == false)
                 return BadRequest(new { message = "Недостаточно прав" });
 
             return Ok(File(obj.binaryData, GetContentType(obj.objectName), Path.GetFileName(obj.objectName)));
         }
-
 
         [HttpPost, Route("create_directory")]
         // принимает objectId (директория, в которой сейчас юзер), objectName (назв. новой директории)
@@ -151,10 +147,9 @@ namespace FileManager.Controllers
             try
             {
                 var directory = _context.Objects
-                .Single(c => (int.Parse(User.Identity.Name) == c.userId) &&
-                (c.type == true) && (c.objectId == objectDto.objectId));
+                .Single(c => (c.type == true) && (c.objectId == objectDto.objectId));
 
-                if (CheckWriteAllow(directory, objectDto.objectId, int.Parse(User.Identity.Name)) == false)
+                if (CheckWriteAllow(directory) == false)
                     return BadRequest(new { message = "Недостаточно прав" });
 
                 var obj = new Objects
@@ -164,14 +159,14 @@ namespace FileManager.Controllers
                     right = directory.right + 1,
                     level = directory.level + 1,
                     type = true,
-                    userId = int.Parse(User.Identity.Name)
+                    userId = directory.userId
                 };
 
                 foreach (var t in _context.Objects)
                 {
-                    if (t.left >= obj.left)
+                    if (t.left >= obj.left && t.userId == directory.userId)
                         t.left += 2;
-                    if (t.right >= obj.left && t.objectId != obj.objectId)
+                    if (t.right >= obj.left && t.objectId != obj.objectId && t.userId == directory.userId)
                         t.right += 2;
                     _context.Objects.Update(t);
                 }
@@ -181,7 +176,7 @@ namespace FileManager.Controllers
 
                 var permissions = new Permissions
                 {
-                    parentUserId = int.Parse(User.Identity.Name),
+                    parentUserId = directory.userId,
                     childUserId = int.Parse(User.Identity.Name),
                     read = true,
                     write = true,
@@ -207,26 +202,26 @@ namespace FileManager.Controllers
             try
             {
                 var directory_this = _context.Objects
-                .Single(c => (int.Parse(User.Identity.Name) == c.userId) &&
-                (c.objectId == objectDto.objectId));
-
-                var catalog = from c in _context.Objects
-                              where (int.Parse(User.Identity.Name) == c.userId)
-                              && c.left >= directory_this.left && c.right <= directory_this.right
-                              orderby c.right
-                              select c;
+                .Single(c => c.objectId == objectDto.objectId);
 
                 var directory_new = _context.Objects
-                .Single(c => (int.Parse(User.Identity.Name) == c.userId) && (c.objectId == objectDto.objId_new));
+                .Single(c => c.objectId == objectDto.objId_new);
 
-                if (CheckWriteAllow(directory_new, objectDto.objectId, int.Parse(User.Identity.Name)) == false)
+                if (CheckWriteAllow(directory_new) == false)
                     return BadRequest(new { message = "Недостаточно прав" });
 
+                var catalog = from c in _context.Objects
+                              where directory_this.userId == c.userId && 
+                              c.left >= directory_this.left && c.right <= directory_this.right
+                              orderby c.right
+                              select c;
+                
                 List<Objects> obj_relocate = new List<Objects>();
                 foreach (var x in catalog)
                     obj_relocate.Add(x);
 
                 var obj = from i in _context.Objects
+                          where directory_this.userId == i.userId // // //
                           select i;
 
                 List<Objects> obj_unrelocate = new List<Objects>();
@@ -277,7 +272,7 @@ namespace FileManager.Controllers
 
                     foreach (var t in obj_unrelocate)
                     {
-                        if (t.left >= directory_new.right)
+                        if (t.left >= directory_new.right && t.objectId != x.objectId)
                             t.left += 2;
                         if (t.right >= directory_new.right && t.objectId != x.objectId)
                             t.right += 2;
@@ -302,16 +297,15 @@ namespace FileManager.Controllers
 
         [HttpPut, Route("rename")]
         [RequestSizeLimit(22548578304)] // ограничение веса запроса 21 гб
-        // принимает objectId, objectName
+        // принимает objectId - что переименовать, objectName - новое имя
         public IActionResult Rename([FromBody]ObjectDto objectDto)
         {
             try
             {
                 var obj = _context.Objects
-                .Single(c => (int.Parse(User.Identity.Name) == c.userId) &&
-                (c.objectId == objectDto.objectId));
+                .Single(c => c.objectId == objectDto.objectId);
 
-                if (CheckWriteAllow(obj, objectDto.objectId, int.Parse(User.Identity.Name)) == false)
+                if (CheckWriteAllow(obj) == false)
                     return BadRequest(new { message = "Недостаточно прав" });
 
                 string name_pattern = @"^[a-zA-Z0-9\s]{2,50}$";
@@ -346,21 +340,22 @@ namespace FileManager.Controllers
             {
                 //_logger.LogError($"111111111111111111111111   {obj.Count()}");
                 var directory_this = _context.Objects
-                    .Single(c => (int.Parse(User.Identity.Name) == c.userId) &&
-                    (c.objectId == objectDto.objectId));
+                    .Single(c => c.objectId == objectDto.objectId);
 
-                var catalog = from c in _context.Objects
-                              where (int.Parse(User.Identity.Name) == c.userId)
-                              && c.left >= directory_this.left && c.right <= directory_this.right
-                              select c;
-
-                if (CheckWriteAllow(directory_this, objectDto.objectId, int.Parse(User.Identity.Name)) == false)
+                if (CheckWriteAllow(directory_this) == false)
                     return BadRequest(new { message = "Недостаточно прав" });
 
+                var catalog = from c in _context.Objects
+                              where directory_this.userId == c.userId && 
+                              c.left >= directory_this.left && c.right <= directory_this.right
+                              select c;
+                
                 var permissions = from p in _context.Permissions
+                                  where directory_this.userId == p.parentUserId // // //
                                   select p;
 
                 var obj = from i in _context.Objects
+                          where directory_this.userId == i.userId // // //
                           select i;
 
                 List<Permissions> delete_permissions = new List<Permissions>();
@@ -377,16 +372,9 @@ namespace FileManager.Controllers
                 }
 
                 obj_delete = obj_delete.OrderBy(c => c.right).ToList();
-
-                foreach (var ob in obj_delete)
-                    _logger.LogError($"elet obj    {ob.objectId}     {ob.left}     {ob.right}");
-
+                
                 foreach (var ob in obj)
                     obj_undelete.Add(ob);
-
-                _logger.LogError($"delet obj    {obj_delete.Count()}");
-                _logger.LogError($"undelet obj    {obj_undelete.Count()}");
-                _logger.LogError($"perm    {delete_permissions.Count()}");
 
                 foreach (var x in obj_delete)
                 {
@@ -398,9 +386,6 @@ namespace FileManager.Controllers
                             c.right -= 2;
                     }
                 }
-
-                foreach (var ob in obj_undelete)
-                    _logger.LogError($"undelet obj    {ob.objectId}     {ob.left}     {ob.right}");
 
                 _context.Objects.UpdateRange(obj_undelete);
                 _context.Permissions.RemoveRange(delete_permissions);
@@ -427,7 +412,7 @@ namespace FileManager.Controllers
                 foreach (var login in logins)
                 {
                     var user_this = _context.Users
-                .Single(up => login == up.login);
+                        .Single(up => login == up.login);
 
                     var perm = from p in _context.Permissions
                                where p.childUserId == user_this.userId
@@ -436,7 +421,7 @@ namespace FileManager.Controllers
                 }
                 
                 var obj_this = _context.Objects
-                .Single(ob => ob.objectId == objectId);
+                    .Single(ob => ob.objectId == objectId);
 
                 // не должно выводиться, т.к. подразумевается, что юзер, дающий разрешения - итак владелец
                 if (obj_this.userId != int.Parse(User.Identity.Name))
@@ -517,23 +502,16 @@ namespace FileManager.Controllers
                     this_dir = _context.Objects.Single(c => c.objectId == objId);
                 }
 
-                var permission = _context.Permissions
-                    .Single(c => int.Parse(User.Identity.Name) == c.childUserId &&
-                     this_dir.objectId == c.objectId);
-                if (permission.read != true)
+                if (CheckReadAllow(this_dir) == false)
                     return BadRequest(new { message = "Недостаточно прав" });
 
                 var user = _context.Users.Single(u => u.userId == this_dir.userId);
 
                 var catalog = from c in _context.Objects
-                              where c.level == (this_dir.level + 1) && c.left > this_dir.left && c.right < this_dir.right
+                              where c.level >= this_dir.level && c.left >= this_dir.left &&
+                              c.right <= this_dir.right && c.userId == int.Parse(User.Identity.Name)
                               select c;
-
-                //if (catalog.Count() == 0)
-                //    catalog = from c in _context.Objects
-                //              where c.left == this_dir.left && c.right == this_dir.right
-                //              select c;
-
+                
                 List<object> format_description = new List<object>();
                 foreach (var x in catalog)
                 {
@@ -543,6 +521,7 @@ namespace FileManager.Controllers
                             x.objectId,
                             x.objectName,
                             x.type,
+                            x.level,
                             user.login
                         });
 
@@ -553,26 +532,11 @@ namespace FileManager.Controllers
                             x.objectName,
                             weigh = Funct(x.binaryData.LongLength),
                             x.type,
+                            x.level,
                             user.login
                         });
                 }
-
-                string Funct(long param)
-                {
-                    string local_var = "";
-
-                    if (param < 1024)
-                        local_var = param.ToString() + " Б";
-                    if (param >= 1024 && param < 1048576)
-                        local_var = Math.Round((double)param / 1024, 2) + " Кб";
-                    if (param >= 1048576 && param < 1073741824)
-                        local_var = Math.Round((double)param / 1048576, 2) + " Мб";
-                    if (param >= 1073741824 && param < 22548578304)
-                        local_var = Math.Round((double)param / 1073741824, 2) + " Гб";
-
-                    return local_var;
-                }
-
+                
                 return Ok(format_description);
             }
             catch (Exception e)
@@ -588,8 +552,7 @@ namespace FileManager.Controllers
         {
             try
             {
-                Objects this_dir = null;
-                this_dir = _context.Objects.Single(c => c.objectId == objId);
+                var this_dir = _context.Objects.Single(c => c.objectId == objId);
 
                 if (int.Parse(User.Identity.Name) != this_dir.userId)
                     return BadRequest(new { message = "Недостаточно прав" });
@@ -667,24 +630,24 @@ namespace FileManager.Controllers
             long size_files = 0;
             foreach (var x in objects)
                 size_files += x.binaryData.LongLength;
-            
-            string Funct(long param)
-            {
-                string local_var = "";
-
-                if (param < 1024)
-                    local_var = param.ToString() + " Б";
-                if (param >= 1024 && param < 1048576)
-                    local_var = Math.Round((double)param / 1024, 2) + " Кб";
-                if (param >= 1048576 && param < 1073741824)
-                    local_var = Math.Round((double)param / 1048576, 2) + " Мб";
-                if (param >= 1073741824 && param < 22548578304)
-                    local_var = Math.Round((double)param / 1073741824, 2) + " Гб";
-
-                return local_var;
-            }
 
             return Ok($"Использовано {Funct(size_files)}. Доступно {Funct(max_size - size_files)}");
+        }
+        
+        private string Funct(long param)
+        {
+            string local_var = "";
+
+            if (param < 1024)
+                local_var = param.ToString() + " Б";
+            if (param >= 1024 && param < 1048576)
+                local_var = Math.Round((double)param / 1024, 2) + " Кб";
+            if (param >= 1048576 && param < 1073741824)
+                local_var = Math.Round((double)param / 1048576, 2) + " Мб";
+            if (param >= 1073741824 && param < 22548578304)
+                local_var = Math.Round((double)param / 1073741824, 2) + " Гб";
+
+            return local_var;
         }
 
         private string GetContentType(string path)
@@ -704,44 +667,49 @@ namespace FileManager.Controllers
                 {".csv", "text/csv"},
                 {".mp4", "video/mp4" },
                 {".mp3", "audio/mpeg"},
-
                 {"", "application/octet-stream"},
                 {".ogg", "application/ogg"},
-                {".pdf", "application/pdf"},
                 {".zip", "application/zip"},
                 {".xml", "application/xml"},
                 {".wav", "audio/vnd.wave"},
-
-
                 {".svg", "image/svg+xml"},
                 {".ico", "image/vnd.microsoft.icon"},
                 {".css", "text/css"},
                 {".html", "text/html"},
                 {".3gp", "video/3gpp"},
                 {".webm", "video/webm"}
-
             };
             var ext = Path.GetExtension(path).ToLowerInvariant();
             return types[ext];
         }
 
-        private bool CheckWriteAllow(Objects directory, int objId, int UserID_this)
+        private bool CheckWriteAllow(Objects obj)
         {
-            var catalog = from x in _context.Objects
-                          where (directory.userId == x.userId) &&
-                          (x.type == true) && (x.level <= directory.level) && (x.right >= directory.right)
-                          && (x.left <= directory.left)
-                          select x;
-
-            foreach (var x in catalog)
+            var permission = _context.Permissions
+                .SingleOrDefault(c => obj.userId == c.parentUserId &&
+                c.childUserId == int.Parse(User.Identity.Name) && obj.objectId == c.objectId);
+            if (permission != null)
             {
-                var permission = _context.Permissions
-                    .Single(c => UserID_this == c.childUserId &&
-                     x.objectId == c.objectId);
                 if (permission.write != true)
                     return false;
             }
+            else
+                return false;
+            return true;
+        }
 
+        private bool CheckReadAllow(Objects obj)
+        {
+            var permission = _context.Permissions
+                .SingleOrDefault(c => obj.userId == c.parentUserId &&
+                c.childUserId == int.Parse(User.Identity.Name) && obj.objectId == c.objectId);
+            if (permission != null)
+            {
+                if (permission.read != true)
+                    return false;
+            }
+            else
+                return false;
             return true;
         }
     }

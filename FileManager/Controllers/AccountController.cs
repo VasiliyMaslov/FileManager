@@ -80,7 +80,7 @@ namespace FileManager.Controllers
                 user.Token
             });
         }
-
+        
         [Authorize(Roles = Role.Admin)]
         [HttpGet]
         public IActionResult GetAll()
