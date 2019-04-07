@@ -509,7 +509,7 @@ namespace FileManager.Controllers
 
                 var catalog = from c in _context.Objects
                               where c.level >= this_dir.level && c.left >= this_dir.left &&
-                              c.right <= this_dir.right && c.userId == int.Parse(User.Identity.Name)
+                              c.right <= this_dir.right && c.userId == this_dir.userId
                               select c;
                 
                 List<object> format_description = new List<object>();
@@ -538,7 +538,7 @@ namespace FileManager.Controllers
                 }
                 
                 return Ok(format_description);
-            }
+            }    
             catch (Exception e)
             {
                 return BadRequest(new { e.Message });
