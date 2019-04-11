@@ -121,7 +121,9 @@ namespace FileManager.Controllers
                         loc += ", ";
                 }
 
-                return Ok($"Файлы {loc} загружены");
+                return Ok(
+                    new { message = $"Файлы {loc} загружены" }
+                    );
             }
             catch (Exception e)
             {
@@ -189,7 +191,9 @@ namespace FileManager.Controllers
                 _context.Permissions.Add(permissions);
                 _context.SaveChanges();
 
-                return Ok($"Директория {obj.objectName} успешно создана");
+                return Ok(
+                    new { message = $"Директория {obj.objectName} успешно создана" }
+                    );
             }
             catch (Exception e)
             {
@@ -295,7 +299,9 @@ namespace FileManager.Controllers
                 return BadRequest(new { e.Message });
             }
 
-            return Ok($"Перемещение выполнено");
+            return Ok(
+                new { message = $"Перемещение выполнено" }
+                );
         }
 
         [HttpPut, Route("rename")]
@@ -326,7 +332,9 @@ namespace FileManager.Controllers
 
                 _context.Objects.Update(obj);
                 _context.SaveChanges();
-                return Ok($"Данный объект переименован в {obj.objectName}");
+                return Ok(
+                    new { message = $"Данный объект переименован в {obj.objectName}" }
+                    );
             }
             catch (Exception e)
             {
@@ -395,7 +403,9 @@ namespace FileManager.Controllers
                 _context.Objects.RemoveRange(obj_delete);
                 _context.SaveChanges();
 
-                return Ok($"Объект или группа объектов успешно удалены");
+                return Ok(
+                    new { message = $"Объект или группа объектов успешно удалены" }
+                );
             }
             catch (Exception e)
             {
@@ -478,7 +488,8 @@ namespace FileManager.Controllers
                 _context.Permissions.AddRange(permissions);
                 _context.SaveChanges();
 
-                return Ok($"Вы предоставили разрешения на {users}. Открыт доступ для {catalog.Count()} объектов");
+                return Ok(
+                    new { message = $"Вы предоставили разрешения на {users}. Открыт доступ для {catalog.Count()} объектов" });
             }
             catch (Exception e)
             {
@@ -615,7 +626,8 @@ namespace FileManager.Controllers
                 _context.Permissions.RemoveRange(permissions);
                 _context.SaveChanges();
 
-                return Ok($"У пользователя с логином {userDto.login} были удалены права на {obj_this.objectName} и дочерние объекты");
+                return Ok(
+                    new { message = $"У пользователя с логином {userDto.login} были удалены права на {obj_this.objectName} и дочерние объекты"});
             }
             catch (Exception e)
             {
@@ -637,12 +649,14 @@ namespace FileManager.Controllers
             foreach (var x in objects)
                 size_files += x.binaryData.LongLength;
 
-            return Ok(
-                new
-                {
-                    message = $"Использовано {Funct(size_files)}. Доступно {Funct(max_size - size_files)}"
-                }
-                    );
+            return Ok(new
+            {
+                message = $"Использовано {Funct(size_files)}. Доступно {Funct(max_size - size_files)}",
+                used = $"{Funct(size_files)}",
+                avaible = $"{Funct(max_size - size_files)}"
+
+            });
+
         }
 
         // дальше идут вспомогательные методы
