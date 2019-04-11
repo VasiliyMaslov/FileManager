@@ -652,8 +652,8 @@ namespace FileManager.Controllers
             return Ok(new
             {
                 message = $"Использовано {Funct(size_files)}. Доступно {Funct(max_size - size_files)}",
-                used = $"{Funct(size_files)}",
-                available = $"{Funct(max_size - size_files)}"
+                used = $"{size_files}",
+                available = $"{max_size - size_files}"
 
             });
 
