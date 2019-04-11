@@ -11,6 +11,7 @@ using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
+using static System.Math;
 
 namespace FileManager.Controllers
 {
@@ -130,7 +131,7 @@ namespace FileManager.Controllers
         
         [HttpGet, Route("download")]
         [RequestSizeLimit(22548578304)] // ограничение веса запроса 21 гб
-        // fileId - ид файла, который скачать
+        // принимает fileId - id файла, который скачать
         public IActionResult Download(int fileId)
         {
             var obj = _context.Objects
@@ -223,7 +224,7 @@ namespace FileManager.Controllers
                     obj_relocate.Add(x);
 
                 var obj = from i in _context.Objects
-                          where directory_this.userId == i.userId // // //
+                          where directory_this.userId == i.userId
                           select i;
 
                 List<Objects> obj_unrelocate = new List<Objects>();
@@ -353,11 +354,11 @@ namespace FileManager.Controllers
                               select c;
                 
                 var permissions = from p in _context.Permissions
-                                  where directory_this.userId == p.parentUserId // // //
+                                  where directory_this.userId == p.parentUserId
                                   select p;
 
                 var obj = from i in _context.Objects
-                          where directory_this.userId == i.userId // // //
+                          where directory_this.userId == i.userId
                           select i;
 
                 List<Permissions> delete_permissions = new List<Permissions>();
@@ -404,7 +405,8 @@ namespace FileManager.Controllers
         
         [HttpPost, Route("add_permission")]
         [RequestSizeLimit(22548578304)] // ограничение веса запроса 21 гб
-        // принимает objectId (объект, на который дать права), массив logins (список логинов, которым дать права)
+        // принимает objectId (объект, на который дать права), массив logins (список логинов, которым дать права),
+        // логические write и read (например с чекбоксов)
         public IActionResult AddPermission([FromForm(Name = "objectId")]int objectId,
             [FromForm(Name = "logins")]string[] logins, [FromForm(Name = "read")]bool read,
             [FromForm(Name = "write")]bool write)
@@ -549,7 +551,7 @@ namespace FileManager.Controllers
 
         [HttpGet, Route("added_users")]
         [RequestSizeLimit(22548578304)] // ограничение веса запроса 21 гб
-        // Вывод списка пользователей, которым предоставлены разрешения на файл
+        // Вывод списка пользователей, которым предоставлены разрешения на файл. Принимает id данного файла
         public IActionResult AddedUsers(int objId)
         {
             try
@@ -637,6 +639,7 @@ namespace FileManager.Controllers
 
             return Ok($"Использовано {Funct(size_files)}. Доступно {Funct(max_size - size_files)}");
         }
+
         // дальше идут вспомогательные методы
         private string Funct(long param)
         {
@@ -645,11 +648,11 @@ namespace FileManager.Controllers
             if (param < 1024)
                 local_var = param.ToString() + " Б";
             if (param >= 1024 && param < 1048576)
-                local_var = Math.Round((double)param / 1024, 2) + " Кб";
+                local_var = Round((double)param / 1024, 2) + " Кб";
             if (param >= 1048576 && param < 1073741824)
-                local_var = Math.Round((double)param / 1048576, 2) + " Мб";
+                local_var = Round((double)param / 1048576, 2) + " Мб";
             if (param >= 1073741824 && param < 22548578304)
-                local_var = Math.Round((double)param / 1073741824, 2) + " Гб";
+                local_var = Round((double)param / 1073741824, 2) + " Гб";
 
             return local_var;
         }

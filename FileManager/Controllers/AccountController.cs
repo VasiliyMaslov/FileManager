@@ -8,6 +8,7 @@ using FileManager.Dtos;
 using FileManager.Entities;
 using FileManager.Helpers;
 using System.Linq;
+using static System.Text.Encoding;
 
 namespace FileManager.Controllers
 {
@@ -31,6 +32,7 @@ namespace FileManager.Controllers
 
         [AllowAnonymous]
         [HttpPost, Route("authenticate")]
+        //принимает login, password
         public IActionResult Authenticate([FromBody]UserDto userDto)
         {
             var user = _userService.Authenticate(userDto.login, userDto.password, out string exception);
@@ -51,10 +53,11 @@ namespace FileManager.Controllers
 
         [AllowAnonymous]
         [HttpPost, Route("register")]
+        // принимает name, secondName, login, password
         public IActionResult Register([FromBody]UserDto userDto)
         {
-            userDto.name = Encoding.UTF8.GetString(Encoding.UTF8.GetBytes(userDto.name));
-            userDto.secondName = Encoding.UTF8.GetString(Encoding.UTF8.GetBytes(userDto.secondName));
+            userDto.name = UTF8.GetString(UTF8.GetBytes(userDto.name));
+            userDto.secondName = UTF8.GetString(UTF8.GetBytes(userDto.secondName));
 
             var user = _mapper.Map<User>(userDto);
             user.Role = "User";
@@ -83,6 +86,7 @@ namespace FileManager.Controllers
         
         [Authorize(Roles = Role.Admin)]
         [HttpGet]
+        // ничего не принимает
         public IActionResult GetAll()
         {
             var users = _userService.GetAll();
@@ -91,6 +95,7 @@ namespace FileManager.Controllers
         }
 
         [HttpGet("{id}")]
+        // принимает id пользователя
         public IActionResult GetById(int id)
         {
             var user = _userService.GetById(id);
@@ -109,6 +114,7 @@ namespace FileManager.Controllers
         }
 
         [HttpPut("{id}")]
+        // принимает id пользователя
         public IActionResult Update(int id, [FromBody]UserDto userDto)
         {
             var user = _mapper.Map<User>(userDto);
@@ -134,6 +140,7 @@ namespace FileManager.Controllers
         }
 
         [HttpDelete("{id}")]
+        // принимает id пользователя
         public IActionResult Delete(int id)
         {
             var currentUserId = int.Parse(User.Identity.Name);
