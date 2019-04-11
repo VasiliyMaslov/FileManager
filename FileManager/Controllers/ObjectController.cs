@@ -653,7 +653,7 @@ namespace FileManager.Controllers
             {
                 message = $"Использовано {Funct(size_files)}. Доступно {Funct(max_size - size_files)}",
                 used = $"{Funct(size_files)}",
-                avaible = $"{Funct(max_size - size_files)}"
+                available = $"{Funct(max_size - size_files)}"
 
             });
 
