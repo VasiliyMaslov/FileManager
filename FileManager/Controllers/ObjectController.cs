@@ -637,7 +637,12 @@ namespace FileManager.Controllers
             foreach (var x in objects)
                 size_files += x.binaryData.LongLength;
 
-            return Ok($"Использовано {Funct(size_files)}. Доступно {Funct(max_size - size_files)}");
+            return Ok(
+                new
+                {
+                    message = $"Использовано {Funct(size_files)}. Доступно {Funct(max_size - size_files)}"
+                }
+                    );
         }
 
         // дальше идут вспомогательные методы

@@ -27,54 +27,59 @@ namespace FileManager
 
         public void ConfigureServices(IServiceCollection services)
         {
-            services.AddCors();
-            // соединение с бд
-            string connection = Configuration.GetConnectionString("MSConnection");
-            services.AddDbContext<ApplicationContext>(options => options.UseSqlServer(connection));
-            services.AddMvc().SetCompatibilityVersion(CompatibilityVersion.Version_2_1);
-            services.AddAutoMapper();
-
-            var appSettingsSection = Configuration.GetSection("AppSettings");
-            services.Configure<AppSettings>(appSettingsSection);
-
-            var appSettings = appSettingsSection.Get<AppSettings>();
-            var key = Encoding.ASCII.GetBytes(appSettings.Secret);
-
-            services.AddAuthentication(x =>
+            try
             {
-                x.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
-                x.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
-            })
-            .AddJwtBearer(x =>
-            {
-                x.Events = new JwtBearerEvents
+                services.AddCors();
+                // соединение с бд
+                string connection = Configuration.GetConnectionString("MSConnection");
+                services.AddDbContext<ApplicationContext>(options => options.UseSqlServer(connection));
+                services.AddMvc().SetCompatibilityVersion(CompatibilityVersion.Version_2_1);
+                services.AddAutoMapper();
+
+                var appSettingsSection = Configuration.GetSection("AppSettings");
+                services.Configure<AppSettings>(appSettingsSection);
+
+                var appSettings = appSettingsSection.Get<AppSettings>();
+                var key = Encoding.ASCII.GetBytes(appSettings.Secret);
+
+                services.AddAuthentication(x =>
                 {
-                    OnTokenValidated = context =>
+                    x.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+                    x.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+                })
+                .AddJwtBearer(x =>
+                {
+                    x.Events = new JwtBearerEvents
                     {
-                        var userService = context.HttpContext.RequestServices.GetRequiredService<IUserService>();
-                        var userId = int.Parse(context.Principal.Identity.Name);
-                        var user = userService.GetById(userId);
-                        if (user == null)
+                        OnTokenValidated = context =>
                         {
-                            context.Fail("Пользователь не авторизован");
+                            var userService = context.HttpContext.RequestServices.GetRequiredService<IUserService>();
+                            var userId = int.Parse(context.Principal.Identity.Name);
+                            var user = userService.GetById(userId);
+                            if (user == null)
+                            {
+                                context.Fail("Пользователь не авторизован");
+                            }
+                            return Task.CompletedTask;
                         }
-                        return Task.CompletedTask;
-                    }
-                };
-                x.RequireHttpsMetadata = false;
-                x.SaveToken = true;
-                x.TokenValidationParameters = new TokenValidationParameters
-                {
-                    ValidateIssuerSigningKey = true,
-                    IssuerSigningKey = new SymmetricSecurityKey(key),
-                    ValidateIssuer = false,
-                    ValidateAudience = false,
-                    ValidateLifetime = true,
-                    ClockSkew = TimeSpan.Zero
-                };
-            });
+                    };
+                    x.RequireHttpsMetadata = false;
+                    x.SaveToken = true;
+                    x.TokenValidationParameters = new TokenValidationParameters
+                    {
+                        ValidateIssuerSigningKey = true,
+                        IssuerSigningKey = new SymmetricSecurityKey(key),
+                        ValidateIssuer = false,
+                        ValidateAudience = false,
+                        ValidateLifetime = true,
+                        ClockSkew = TimeSpan.Zero
+                    };
+                });
 
-            services.AddScoped<IUserService, UserService>();
+                services.AddScoped<IUserService, UserService>();
+            }
+            catch(Exception ex)
+            {}
         }
 
         public void Configure(IApplicationBuilder app, IHostingEnvironment env, ILoggerFactory loggerFactory)
