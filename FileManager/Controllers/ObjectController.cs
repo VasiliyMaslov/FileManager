@@ -41,7 +41,7 @@ namespace FileManager.Controllers
         {
             try
             {
-                List<object> format_description = new List<object>();
+                List<object> data = new List<object>();
                 
                 var directory = _context.Objects
                 .Single(c => c.objectId == directoryId && c.type == true);
@@ -108,7 +108,7 @@ namespace FileManager.Controllers
 
                     _context.Permissions.Add(permissions);
 
-                    format_description.Add(new
+                    data.Add(new
                     {
                         obj.objectName,
                         obj.left,
@@ -137,7 +137,7 @@ namespace FileManager.Controllers
                 {
                     error = false,
                     message = $"Файлы {loc} загружены",
-                    format_description
+                    data
                 });
             }
             catch (Exception e)
@@ -233,7 +233,7 @@ namespace FileManager.Controllers
         // принимает objectId (директория, которую переместить), objId_new (куда переместить)
         public IActionResult Relocate([FromBody]ObjectDto objectDto)
         {
-            List<object> format_description = new List<object>();
+            List<object> data = new List<object>();
             try
             {
                 var directory_this = _context.Objects
@@ -325,7 +325,7 @@ namespace FileManager.Controllers
 
                 foreach (var x in obj_relocate)
                 {
-                    format_description.Add(new
+                    data.Add(new
                     {
                         x.objectName,
                         x.left,
@@ -346,7 +346,7 @@ namespace FileManager.Controllers
             {
                 error = false,
                 message = $"Перемещение выполнено",
-                relocated_objects = format_description,
+                relocated_objects = data,
                 id_parent_directory = objectDto.objectId,
                 id_new_directory = objectDto.objId_new
             });
@@ -587,33 +587,97 @@ namespace FileManager.Controllers
                               c.right <= this_dir.right && c.userId == this_dir.userId
                               select c;
                 
-                List<object> format_description = new List<object>();
+                List<object> data = new List<object>();
                 foreach (var x in catalog)
                 {
                     if (x.type == true)
-                        format_description.Add(new
+                        data.Add(new
                         {
                             x.objectId,
                             x.objectName,
                             x.type,
                             x.level,
+                            x.left,
+                            x.right,
                             user.login
                         });
 
                     if (x.type == false)
-                        format_description.Add(new
+                        data.Add(new
                         {
                             x.objectId,
                             x.objectName,
-                            weight = Funct(x.binaryData.LongLength),
+                            weight = x.binaryData.LongLength,
                             x.type,
                             x.level,
+                            x.left,
+                            x.right,
                             user.login
                         });
                 }
                 
-                return Ok(new { error = false, format_description });
+                return Ok(new { error = false, data });
             }    
+            catch (Exception e)
+            {
+                return BadRequest(new { error = true, e.Message });
+            }
+        }
+
+        [HttpGet, Route("shared_objects")]
+        [RequestSizeLimit(22548578304)] // ограничение веса запроса 21 гб
+        // При открытии какой-либо директории, должен передаваться ее objId.
+        // Можно не указывать ТОЛЬКО при регистрации, т.е. пользователю итак вернется базовый каталог
+        public IActionResult Shared()
+        {
+            try
+            {
+                List<Objects> collection = new List<Objects>();
+                var catalog = from c in _context.Permissions
+                              where c.childUserId == int.Parse(User.Identity.Name) && c.childUserId != c.parentUserId
+                              select c;
+
+                foreach (var x in catalog)
+                {
+                    collection.Add(_context.Objects
+                    .Single(c => c.objectId == x.objectId));
+                }
+
+                List<object> data = new List<object>();
+                foreach (var x in collection)
+                {
+                    if (x.type == true)
+                        data.Add(new
+                        {
+                            x.objectId,
+                            x.objectName,
+                            x.type,
+                            parent = x.userId,
+                            parent_login = _context.Users.Single(c => c.userId == x.userId).login,
+                            _context.Permissions.Single(c => c.parentUserId == x.userId &&
+                            c.childUserId == int.Parse(User.Identity.Name) && c.objectId == x.objectId).write,
+                            _context.Permissions.Single(c => c.parentUserId == x.userId &&
+                            c.childUserId == int.Parse(User.Identity.Name) && c.objectId == x.objectId).read
+                        });
+
+                    if (x.type == false)
+                        data.Add(new
+                        {
+                            x.objectId,
+                            x.objectName,
+                            weight = x.binaryData.LongLength,
+                            x.type,
+                            parent = x.userId,
+                            parent_login = _context.Users.Single(c => c.userId == x.userId),
+                            _context.Permissions.Single(c => c.parentUserId == x.userId &&
+                            c.childUserId == int.Parse(User.Identity.Name) && c.objectId == x.objectId).write,
+                            _context.Permissions.Single(c => c.parentUserId == x.userId &&
+                            c.childUserId == int.Parse(User.Identity.Name) && c.objectId == x.objectId).read
+                        });
+                }
+
+                return Ok(new { error = false, data });
+            }
             catch (Exception e)
             {
                 return BadRequest(new { error = true, e.Message });
@@ -636,10 +700,10 @@ namespace FileManager.Controllers
                                  where p.objectId == objId
                                  select p;
 
-                List<object> format_description = new List<object>();
+                List<object> data = new List<object>();
                 foreach (var x in permission)
                 {
-                    format_description.Add(new
+                    data.Add(new
                     {
                         _context.Users.Single(c => c.userId == x.childUserId).login,
                         x.read,
@@ -647,7 +711,7 @@ namespace FileManager.Controllers
                     });
                 }
 
-                return Ok(new { error = false, format_description });
+                return Ok(new { error = false, data });
             }
             catch (Exception e)
             {
