@@ -597,6 +597,8 @@ namespace FileManager.Controllers
                             x.objectName,
                             x.type,
                             x.level,
+                            x.left,
+                            x.right,
                             user.login
                         });
 
@@ -605,15 +607,77 @@ namespace FileManager.Controllers
                         {
                             x.objectId,
                             x.objectName,
-                            weight = Funct(x.binaryData.LongLength),
+                            weight = x.binaryData.LongLength,
                             x.type,
                             x.level,
+                            x.left,
+                            x.right,
                             user.login
                         });
                 }
                 
-                return Ok(new { error = false, data = data });
+                return Ok(new { error = false, data });
             }    
+            catch (Exception e)
+            {
+                return BadRequest(new { error = true, e.Message });
+            }
+        }
+
+        [HttpGet, Route("shared_objects")]
+        [RequestSizeLimit(22548578304)] // ограничение веса запроса 21 гб
+        // При открытии какой-либо директории, должен передаваться ее objId.
+        // Можно не указывать ТОЛЬКО при регистрации, т.е. пользователю итак вернется базовый каталог
+        public IActionResult Shared()
+        {
+            try
+            {
+                List<Objects> collection = new List<Objects>();
+                var catalog = from c in _context.Permissions
+                              where c.childUserId == int.Parse(User.Identity.Name) && c.childUserId != c.parentUserId
+                              select c;
+
+                foreach (var x in catalog)
+                {
+                    collection.Add(_context.Objects
+                    .Single(c => c.objectId == x.objectId));
+                }
+
+                List<object> data = new List<object>();
+                foreach (var x in collection)
+                {
+                    if (x.type == true)
+                        data.Add(new
+                        {
+                            x.objectId,
+                            x.objectName,
+                            x.type,
+                            parent = x.userId,
+                            parent_login = _context.Users.Single(c => c.userId == x.userId).login,
+                            _context.Permissions.Single(c => c.parentUserId == x.userId &&
+                            c.childUserId == int.Parse(User.Identity.Name) && c.objectId == x.objectId).write,
+                            _context.Permissions.Single(c => c.parentUserId == x.userId &&
+                            c.childUserId == int.Parse(User.Identity.Name) && c.objectId == x.objectId).read
+                        });
+
+                    if (x.type == false)
+                        data.Add(new
+                        {
+                            x.objectId,
+                            x.objectName,
+                            weight = x.binaryData.LongLength,
+                            x.type,
+                            parent = x.userId,
+                            parent_login = _context.Users.Single(c => c.userId == x.userId),
+                            _context.Permissions.Single(c => c.parentUserId == x.userId &&
+                            c.childUserId == int.Parse(User.Identity.Name) && c.objectId == x.objectId).write,
+                            _context.Permissions.Single(c => c.parentUserId == x.userId &&
+                            c.childUserId == int.Parse(User.Identity.Name) && c.objectId == x.objectId).read
+                        });
+                }
+
+                return Ok(new { error = false, data });
+            }
             catch (Exception e)
             {
                 return BadRequest(new { error = true, e.Message });
