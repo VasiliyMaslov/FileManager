@@ -47,7 +47,7 @@ namespace FileManager.Controllers
                 .Single(c => c.objectId == directoryId && c.type == true);
 
                 if (CheckWriteAllow(directory) == false)
-                    return BadRequest(new { error = true, message = "Недостаточно прав" });
+                    return Ok(new { error = true, message = "Недостаточно прав" });
 
                 var objects = from t in _context.Objects
                               where directory.userId == t.userId && t.type == false
@@ -60,17 +60,17 @@ namespace FileManager.Controllers
                 foreach (var f in file)
                 {
                     if (f == null)
-                        return BadRequest(new { error = true, message = "Файл не выбран" });
+                        return Ok(new { error = true, message = "Файл не выбран" });
                     if (f.FileName.Length >= 50)
-                        return BadRequest(new { error = true, message = "Название файла должно быть меньше 50-ти символов" });
+                        return Ok(new { error = true, message = "Название файла должно быть меньше 50-ти символов" });
                     if (f.Length > max_size)
-                        return BadRequest(new { error = true, message = "Размер файла не должен превышать 20 Гб" });
+                        return Ok(new { error = true, message = "Размер файла не должен превышать 20 Гб" });
 
                     size_files += f.Length;
                     var available_size = max_size - size_files;
 
                     if ((available_size - f.Length) <= 0)
-                        return BadRequest(new { error = true, message = "Недостаточно места" });
+                        return Ok(new { error = true, message = "Недостаточно места" });
 
                     Objects obj = new Objects();
 
@@ -155,7 +155,7 @@ namespace FileManager.Controllers
                 .Single(c => (c.type == false) && (c.objectId == fileId));
 
             if (CheckReadAllow(obj) == false)
-                return BadRequest(new { error = true, message = "Недостаточно прав" });
+                return Ok(new { error = true, message = "Недостаточно прав" });
 
             return Ok(new
             {
@@ -174,7 +174,7 @@ namespace FileManager.Controllers
                 .Single(c => (c.type == true) && (c.objectId == objectDto.objectId));
 
                 if (CheckWriteAllow(directory) == false)
-                    return BadRequest(new { error = true, message = "Недостаточно прав" });
+                    return Ok(new { error = true, message = "Недостаточно прав" });
 
                 var obj = new Objects
                 {
@@ -244,7 +244,7 @@ namespace FileManager.Controllers
                 .Single(c => c.objectId == objectDto.objId_new);
 
                 if (CheckWriteAllow(directory_new) == false)
-                    return BadRequest(new { error = true, message = "Недостаточно прав" });
+                    return Ok(new { error = true, message = "Недостаточно прав" });
 
                 var catalog = from c in _context.Objects
                               where directory_this.userId == c.userId && 
@@ -364,7 +364,7 @@ namespace FileManager.Controllers
                 .Single(c => c.objectId == objectDto.objectId);
 
                 if (CheckWriteAllow(obj) == false)
-                    return BadRequest(new { error = true, message = "Недостаточно прав" });
+                    return Ok(new { error = true, message = "Недостаточно прав" });
 
                 string name_pattern = @"^[a-zA-Zа-яА-Я0-9\s]{2,50}$";
 
@@ -413,7 +413,7 @@ namespace FileManager.Controllers
                     .Single(c => c.objectId == objectDto.objectId);
 
                 if (CheckWriteAllow(directory_this) == false)
-                    return BadRequest(new { error = true, message = "Недостаточно прав" });
+                    return Ok(new { error = true, message = "Недостаточно прав" });
 
                 var catalog = from c in _context.Objects
                               where directory_this.userId == c.userId && 
@@ -482,6 +482,8 @@ namespace FileManager.Controllers
         {
             try
             {
+                List<User> list_user = new List<User>();
+
                 foreach (var login in logins)
                 {
                     var user_this = _context.Users
@@ -498,7 +500,7 @@ namespace FileManager.Controllers
 
                 // не должно выводиться, т.к. подразумевается, что юзер, дающий разрешения - итак владелец
                 if (obj_this.userId != int.Parse(User.Identity.Name))
-                    return BadRequest(new { error = true, message = "Вы не являетесь владельцем файла" });
+                    return Ok(new { error = true, message = "Вы не являетесь владельцем файла" });
 
                 var user_parent = _context.Users
                 .Single(up => int.Parse(User.Identity.Name) == up.userId);
@@ -536,7 +538,23 @@ namespace FileManager.Controllers
                                 objectId = c.objectId
                             });
                     }
+
+                    list_user.Add(user_this);
                 }
+
+                List<object> data = new List<object>();
+                foreach (var x in list_user)
+                {
+
+                    data.Add(new
+                    {
+                        x.userId,
+                        x.login,
+                        x.name,
+                        x.secondName
+                    });
+                }
+
                 for (int i = 0; i < logins.Count(); i++)
                 {
                     users += logins[i];
@@ -548,9 +566,12 @@ namespace FileManager.Controllers
                 _context.SaveChanges();
 
                 return Ok(
-                    new {
+                    new
+                    {
                         error = false,
-                        message = $"Вы предоставили разрешения на {users}. Открыт доступ для {catalog.Count()} объектов" });
+                        message = $"Вы предоставили разрешения на {users}. Открыт доступ для {catalog.Count()} объектов",
+                        data
+                    });
             }
             catch (Exception e)
             {
@@ -579,7 +600,7 @@ namespace FileManager.Controllers
                 }
 
                 if (CheckReadAllow(this_dir) == false)
-                    return BadRequest(new { error = true, message = "Недостаточно прав" });
+                    return Ok(new { error = true, message = "Недостаточно прав" });
 
                 var user = _context.Users.Single(u => u.userId == this_dir.userId);
 
@@ -695,7 +716,7 @@ namespace FileManager.Controllers
                 var this_dir = _context.Objects.Single(c => c.objectId == objId);
 
                 if (int.Parse(User.Identity.Name) != this_dir.userId)
-                    return BadRequest(new { error = true, message = "Недостаточно прав" });
+                    return Ok(new { error = true, message = "Недостаточно прав" });
 
                 var permission = from p in _context.Permissions
                                  where p.objectId == objId
@@ -735,7 +756,7 @@ namespace FileManager.Controllers
                 .Single(ob => ob.objectId == userDto.objectId);
 
                 if (int.Parse(User.Identity.Name) != obj_this.userId)
-                    return BadRequest(new { error = true, message = "Недостаточно прав" });
+                    return Ok(new { error = true, message = "Недостаточно прав" });
 
                 var catalog = from c in _context.Objects
                               where c.left >= obj_this.left && c.right <= obj_this.right
