@@ -216,6 +216,7 @@ namespace FileManager.Controllers
                     message = $"Директория {obj.objectName} успешно создана",
                     obj.objectId,
                     obj.objectName,
+                    obj.type,
                     obj.left,
                     obj.right,
                     obj.level,
