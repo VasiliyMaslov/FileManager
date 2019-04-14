@@ -106,7 +106,7 @@ namespace FileManager.Controllers
                 return NotFound();
             }
 
-            var userDto = _mapper.Map<UserDto>(user);
+            var data = _mapper.Map<UserDto>(user);
 
             var currentUserId = int.Parse(User.Identity.Name);
             if (id != currentUserId && !User.IsInRole(Role.Admin))
@@ -115,7 +115,7 @@ namespace FileManager.Controllers
             return Ok(new
             {
                 error = false,
-                userDto
+                data
             });
         }
 

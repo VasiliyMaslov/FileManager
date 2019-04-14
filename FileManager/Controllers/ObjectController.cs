@@ -41,7 +41,7 @@ namespace FileManager.Controllers
         {
             try
             {
-                List<object> format_description = new List<object>();
+                List<object> data = new List<object>();
                 
                 var directory = _context.Objects
                 .Single(c => c.objectId == directoryId && c.type == true);
@@ -108,7 +108,7 @@ namespace FileManager.Controllers
 
                     _context.Permissions.Add(permissions);
 
-                    format_description.Add(new
+                    data.Add(new
                     {
                         obj.objectName,
                         obj.left,
@@ -137,7 +137,7 @@ namespace FileManager.Controllers
                 {
                     error = false,
                     message = $"Файлы {loc} загружены",
-                    format_description
+                    data
                 });
             }
             catch (Exception e)
@@ -233,7 +233,7 @@ namespace FileManager.Controllers
         // принимает objectId (директория, которую переместить), objId_new (куда переместить)
         public IActionResult Relocate([FromBody]ObjectDto objectDto)
         {
-            List<object> format_description = new List<object>();
+            List<object> data = new List<object>();
             try
             {
                 var directory_this = _context.Objects
@@ -325,7 +325,7 @@ namespace FileManager.Controllers
 
                 foreach (var x in obj_relocate)
                 {
-                    format_description.Add(new
+                    data.Add(new
                     {
                         x.objectName,
                         x.left,
@@ -346,7 +346,7 @@ namespace FileManager.Controllers
             {
                 error = false,
                 message = $"Перемещение выполнено",
-                relocated_objects = format_description,
+                relocated_objects = data,
                 id_parent_directory = objectDto.objectId,
                 id_new_directory = objectDto.objId_new
             });
@@ -587,11 +587,11 @@ namespace FileManager.Controllers
                               c.right <= this_dir.right && c.userId == this_dir.userId
                               select c;
                 
-                List<object> format_description = new List<object>();
+                List<object> data = new List<object>();
                 foreach (var x in catalog)
                 {
                     if (x.type == true)
-                        format_description.Add(new
+                        data.Add(new
                         {
                             x.objectId,
                             x.objectName,
@@ -601,7 +601,7 @@ namespace FileManager.Controllers
                         });
 
                     if (x.type == false)
-                        format_description.Add(new
+                        data.Add(new
                         {
                             x.objectId,
                             x.objectName,
@@ -612,7 +612,7 @@ namespace FileManager.Controllers
                         });
                 }
                 
-                return Ok(new { error = false, format_description });
+                return Ok(new { error = false, data = data });
             }    
             catch (Exception e)
             {
@@ -636,10 +636,10 @@ namespace FileManager.Controllers
                                  where p.objectId == objId
                                  select p;
 
-                List<object> format_description = new List<object>();
+                List<object> data = new List<object>();
                 foreach (var x in permission)
                 {
-                    format_description.Add(new
+                    data.Add(new
                     {
                         _context.Users.Single(c => c.userId == x.childUserId).login,
                         x.read,
@@ -647,7 +647,7 @@ namespace FileManager.Controllers
                     });
                 }
 
-                return Ok(new { error = false, format_description });
+                return Ok(new { error = false, data });
             }
             catch (Exception e)
             {
