@@ -41,6 +41,8 @@ namespace FileManager.Controllers
         {
             try
             {
+                List<object> format_description = new List<object>();
+                
                 var directory = _context.Objects
                 .Single(c => c.objectId == directoryId && c.type == true);
 
@@ -105,6 +107,16 @@ namespace FileManager.Controllers
                     };
 
                     _context.Permissions.Add(permissions);
+
+                    format_description.Add(new
+                    {
+                        obj.objectName,
+                        obj.left,
+                        obj.right,
+                        obj.level,
+                        weigh = obj.binaryData.LongLength,
+                        obj.userId
+                    });
                 }
                 _context.SaveChanges();
 
@@ -120,10 +132,12 @@ namespace FileManager.Controllers
                     if (i < files.Count() - 1)
                         loc += ", ";
                 }
-
+                
                 return Ok(
-                    new { message = $"Файлы {loc} загружены" }
-                    );
+                    new {
+                        message = $"Файлы {loc} загружены",
+                        format_description
+                    });
             }
             catch (Exception e)
             {
@@ -192,7 +206,14 @@ namespace FileManager.Controllers
                 _context.SaveChanges();
 
                 return Ok(
-                    new { message = $"Директория {obj.objectName} успешно создана" }
+                    new { message = $"Директория {obj.objectName} успешно создана",
+                          obj.objectId,
+                          obj.objectName,
+                          obj.left,
+                          obj.right,
+                          obj.level,
+                          obj.userId
+                    }
                     );
             }
             catch (Exception e)
