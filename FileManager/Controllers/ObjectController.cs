@@ -369,10 +369,10 @@ namespace FileManager.Controllers
                 string name_pattern = @"^[a-zA-Zа-яА-Я0-9\s]{2,50}$";
 
                 if (string.IsNullOrWhiteSpace(objectDto.objectName))
-                    return BadRequest(new { error = true, message = "Вы забыли ввести название или оно содержит пробелы" });
+                    return Ok(new { error = true, message = "Вы забыли ввести название или оно содержит пробелы" });
 
                 if (!Regex.IsMatch(objectDto.objectName, name_pattern, RegexOptions.IgnoreCase))
-                    return BadRequest(new { error = true, message = "Допустимая длина от 2 до 50 символов" });
+                    return Ok(new { error = true, message = "Допустимая длина от 2 до 50 символов" });
 
                 if (obj.type == true)
                     obj.objectName = objectDto.objectName;
