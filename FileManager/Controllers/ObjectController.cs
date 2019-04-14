@@ -47,7 +47,7 @@ namespace FileManager.Controllers
                 .Single(c => c.objectId == directoryId && c.type == true);
 
                 if (CheckWriteAllow(directory) == false)
-                    return BadRequest(new { error = true, message = "Недостаточно прав" });
+                    return Ok(new { error = true, message = "Недостаточно прав" });
 
                 var objects = from t in _context.Objects
                               where directory.userId == t.userId && t.type == false
@@ -60,17 +60,17 @@ namespace FileManager.Controllers
                 foreach (var f in file)
                 {
                     if (f == null)
-                        return BadRequest(new { error = true, message = "Файл не выбран" });
+                        return Ok(new { error = true, message = "Файл не выбран" });
                     if (f.FileName.Length >= 50)
-                        return BadRequest(new { error = true, message = "Название файла должно быть меньше 50-ти символов" });
+                        return Ok(new { error = true, message = "Название файла должно быть меньше 50-ти символов" });
                     if (f.Length > max_size)
-                        return BadRequest(new { error = true, message = "Размер файла не должен превышать 20 Гб" });
+                        return Ok(new { error = true, message = "Размер файла не должен превышать 20 Гб" });
 
                     size_files += f.Length;
                     var available_size = max_size - size_files;
 
                     if ((available_size - f.Length) <= 0)
-                        return BadRequest(new { error = true, message = "Недостаточно места" });
+                        return Ok(new { error = true, message = "Недостаточно места" });
 
                     Objects obj = new Objects();
 
@@ -155,7 +155,7 @@ namespace FileManager.Controllers
                 .Single(c => (c.type == false) && (c.objectId == fileId));
 
             if (CheckReadAllow(obj) == false)
-                return BadRequest(new { error = true, message = "Недостаточно прав" });
+                return Ok(new { error = true, message = "Недостаточно прав" });
 
             return Ok(new
             {
@@ -174,7 +174,7 @@ namespace FileManager.Controllers
                 .Single(c => (c.type == true) && (c.objectId == objectDto.objectId));
 
                 if (CheckWriteAllow(directory) == false)
-                    return BadRequest(new { error = true, message = "Недостаточно прав" });
+                    return Ok(new { error = true, message = "Недостаточно прав" });
 
                 var obj = new Objects
                 {
@@ -244,7 +244,7 @@ namespace FileManager.Controllers
                 .Single(c => c.objectId == objectDto.objId_new);
 
                 if (CheckWriteAllow(directory_new) == false)
-                    return BadRequest(new { error = true, message = "Недостаточно прав" });
+                    return Ok(new { error = true, message = "Недостаточно прав" });
 
                 var catalog = from c in _context.Objects
                               where directory_this.userId == c.userId && 
@@ -364,15 +364,15 @@ namespace FileManager.Controllers
                 .Single(c => c.objectId == objectDto.objectId);
 
                 if (CheckWriteAllow(obj) == false)
-                    return BadRequest(new { error = true, message = "Недостаточно прав" });
+                    return Ok(new { error = true, message = "Недостаточно прав" });
 
                 string name_pattern = @"^[a-zA-Zа-яА-Я0-9\s]{2,50}$";
 
                 if (string.IsNullOrWhiteSpace(objectDto.objectName))
-                    return BadRequest(new { error = true, message = "Вы забыли ввести название или оно содержит пробелы" });
+                    return Ok(new { error = true, message = "Вы забыли ввести название или оно содержит пробелы" });
 
                 if (!Regex.IsMatch(objectDto.objectName, name_pattern, RegexOptions.IgnoreCase))
-                    return BadRequest(new { error = true, message = "Допустимая длина от 2 до 50 символов" });
+                    return Ok(new { error = true, message = "Допустимая длина от 2 до 50 символов" });
 
                 if (obj.type == true)
                     obj.objectName = objectDto.objectName;
@@ -413,7 +413,7 @@ namespace FileManager.Controllers
                     .Single(c => c.objectId == objectDto.objectId);
 
                 if (CheckWriteAllow(directory_this) == false)
-                    return BadRequest(new { error = true, message = "Недостаточно прав" });
+                    return Ok(new { error = true, message = "Недостаточно прав" });
 
                 var catalog = from c in _context.Objects
                               where directory_this.userId == c.userId && 
@@ -500,7 +500,7 @@ namespace FileManager.Controllers
 
                 // не должно выводиться, т.к. подразумевается, что юзер, дающий разрешения - итак владелец
                 if (obj_this.userId != int.Parse(User.Identity.Name))
-                    return BadRequest(new { error = true, message = "Вы не являетесь владельцем файла" });
+                    return Ok(new { error = true, message = "Вы не являетесь владельцем файла" });
 
                 var user_parent = _context.Users
                 .Single(up => int.Parse(User.Identity.Name) == up.userId);
@@ -600,7 +600,7 @@ namespace FileManager.Controllers
                 }
 
                 if (CheckReadAllow(this_dir) == false)
-                    return BadRequest(new { error = true, message = "Недостаточно прав" });
+                    return Ok(new { error = true, message = "Недостаточно прав" });
 
                 var user = _context.Users.Single(u => u.userId == this_dir.userId);
 
@@ -716,7 +716,7 @@ namespace FileManager.Controllers
                 var this_dir = _context.Objects.Single(c => c.objectId == objId);
 
                 if (int.Parse(User.Identity.Name) != this_dir.userId)
-                    return BadRequest(new { error = true, message = "Недостаточно прав" });
+                    return Ok(new { error = true, message = "Недостаточно прав" });
 
                 var permission = from p in _context.Permissions
                                  where p.objectId == objId
@@ -756,7 +756,7 @@ namespace FileManager.Controllers
                 .Single(ob => ob.objectId == userDto.objectId);
 
                 if (int.Parse(User.Identity.Name) != obj_this.userId)
-                    return BadRequest(new { error = true, message = "Недостаточно прав" });
+                    return Ok(new { error = true, message = "Недостаточно прав" });
 
                 var catalog = from c in _context.Objects
                               where c.left >= obj_this.left && c.right <= obj_this.right
