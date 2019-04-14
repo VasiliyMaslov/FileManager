@@ -133,11 +133,11 @@ namespace FileManager.Controllers
                         loc += ", ";
                 }
                 
-                return Ok(
-                    new {
-                        message = $"Файлы {loc} загружены",
-                        format_description
-                    });
+                return Ok(new
+                {
+                    message = $"Файлы {loc} загружены",
+                    format_description
+                });
             }
             catch (Exception e)
             {
@@ -205,16 +205,16 @@ namespace FileManager.Controllers
                 _context.Permissions.Add(permissions);
                 _context.SaveChanges();
 
-                return Ok(
-                    new { message = $"Директория {obj.objectName} успешно создана",
-                          obj.objectId,
-                          obj.objectName,
-                          obj.left,
-                          obj.right,
-                          obj.level,
-                          obj.userId
-                    }
-                    );
+                return Ok(new
+                {
+                    message = $"Директория {obj.objectName} успешно создана",
+                    obj.objectId,
+                    obj.objectName,
+                    obj.left,
+                    obj.right,
+                    obj.level,
+                    obj.userId
+                });
             }
             catch (Exception e)
             {
@@ -320,9 +320,7 @@ namespace FileManager.Controllers
                 return BadRequest(new { e.Message });
             }
 
-            return Ok(
-                new { message = $"Перемещение выполнено" }
-                );
+            return Ok(new { message = $"Перемещение выполнено" });
         }
 
         [HttpPut, Route("rename")]
@@ -338,10 +336,10 @@ namespace FileManager.Controllers
                 if (CheckWriteAllow(obj) == false)
                     return BadRequest(new { message = "Недостаточно прав" });
 
-                string name_pattern = @"^[a-zA-Z0-9\s]{2,50}$";
+                string name_pattern = @"^[a-zA-Zа-яА-Я0-9\s]{2,50}$";
 
                 if (string.IsNullOrWhiteSpace(objectDto.objectName))
-                    return BadRequest(new { message = "Вы забыли ввести логин и/или пароль" });
+                    return BadRequest(new { message = "Вы забыли ввести название или оно содержит пробелы" });
 
                 if (!Regex.IsMatch(objectDto.objectName, name_pattern, RegexOptions.IgnoreCase))
                     return BadRequest(new { message = "Допустимая длина от 2 до 50 символов" });
@@ -353,9 +351,18 @@ namespace FileManager.Controllers
 
                 _context.Objects.Update(obj);
                 _context.SaveChanges();
-                return Ok(
-                    new { message = $"Данный объект переименован в {obj.objectName}" }
-                    );
+                return Ok(new
+                {
+                    message = $"Данный объект переименован в {obj.objectName}",
+                    obj.objectId,
+                    obj.objectName,
+                    obj.left,
+                    obj.right,
+                    obj.level,
+                    obj.type,
+                    obj.binaryData,
+                    obj.userId
+                });
             }
             catch (Exception e)
             {
@@ -647,8 +654,7 @@ namespace FileManager.Controllers
                 _context.Permissions.RemoveRange(permissions);
                 _context.SaveChanges();
 
-                return Ok(
-                    new { message = $"У пользователя с логином {userDto.login} были удалены права на {obj_this.objectName} и дочерние объекты"});
+                return Ok(new { message = $"У пользователя с логином {userDto.login} были удалены права на {obj_this.objectName} и дочерние объекты"});
             }
             catch (Exception e)
             {
