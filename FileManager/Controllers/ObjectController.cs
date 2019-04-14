@@ -482,6 +482,8 @@ namespace FileManager.Controllers
         {
             try
             {
+                List<User> list_user = new List<User>();
+
                 foreach (var login in logins)
                 {
                     var user_this = _context.Users
@@ -536,7 +538,23 @@ namespace FileManager.Controllers
                                 objectId = c.objectId
                             });
                     }
+
+                    list_user.Add(user_this);
                 }
+
+                List<object> data = new List<object>();
+                foreach (var x in list_user)
+                {
+
+                    data.Add(new
+                    {
+                        x.userId,
+                        x.login,
+                        x.name,
+                        x.secondName
+                    });
+                }
+
                 for (int i = 0; i < logins.Count(); i++)
                 {
                     users += logins[i];
@@ -548,9 +566,12 @@ namespace FileManager.Controllers
                 _context.SaveChanges();
 
                 return Ok(
-                    new {
+                    new
+                    {
                         error = false,
-                        message = $"Вы предоставили разрешения на {users}. Открыт доступ для {catalog.Count()} объектов" });
+                        message = $"Вы предоставили разрешения на {users}. Открыт доступ для {catalog.Count()} объектов",
+                        data
+                    });
             }
             catch (Exception e)
             {
