@@ -114,7 +114,7 @@ namespace FileManager.Controllers
                         obj.left,
                         obj.right,
                         obj.level,
-                        weigh = obj.binaryData.LongLength,
+                        weight = obj.binaryData.LongLength,
                         obj.userId
                     });
                 }
@@ -359,7 +359,7 @@ namespace FileManager.Controllers
             }
             catch (Exception e)
             {
-                return BadRequest(new { e.Message });
+                return BadRequest(new { error = e.Message });
             }
         }
 
@@ -566,7 +566,7 @@ namespace FileManager.Controllers
                         {
                             x.objectId,
                             x.objectName,
-                            weigh = Funct(x.binaryData.LongLength),
+                            weight = Funct(x.binaryData.LongLength),
                             x.type,
                             x.level,
                             user.login
