@@ -38,11 +38,12 @@ namespace FileManager.Controllers
             var user = _userService.Authenticate(userDto.login, userDto.password, out string exception);
 
             if (exception != null)
-                return BadRequest(new { message = exception });
+                return BadRequest(new { error = true, message = exception });
 
             // возврат данных пользователя (без пароля)
             return Ok(new
             {
+                error = false,
                 user.userId,
                 user.login,
                 user.name,
@@ -64,11 +65,11 @@ namespace FileManager.Controllers
 
             _userService.Create(user, userDto.password, out string exception);
             if (exception != null)
-                return BadRequest(new { message = exception });
+                return BadRequest(new { error = true, message = exception });
 
             _userService.Authenticate(userDto.login, userDto.password, out string except);
             if (except != null)
-                return BadRequest(new { message = except });
+                return BadRequest(new { error = true, message = except });
 
             _userService.AddBasicCatalog(_context.Users.Single(x =>
             x.login == userDto.login &&
@@ -76,6 +77,7 @@ namespace FileManager.Controllers
 
             return Ok(new
             {
+                error = false,
                 user.userId,
                 user.login,
                 user.name,
@@ -110,7 +112,11 @@ namespace FileManager.Controllers
             if (id != currentUserId && !User.IsInRole(Role.Admin))
                 return Forbid();
 
-            return Ok(userDto);
+            return Ok(new
+            {
+                error = false,
+                userDto
+            });
         }
 
         [HttpPut("{id}")]
@@ -127,10 +133,11 @@ namespace FileManager.Controllers
             {
                 _userService.Update(user, out string exception, userDto.password);
                 if (exception != null)
-                    return BadRequest(new { message = exception });
+                    return BadRequest(new { error = true, message = exception });
             }
             return Ok(new
             {
+                error = false,
                 user.userId,
                 user.login,
                 user.name,
@@ -150,10 +157,10 @@ namespace FileManager.Controllers
             {
                 _userService.Delete(id, out string exception);
                 if (exception != null)
-                    return BadRequest(new { message = exception });
+                    return BadRequest(new { error = true, message = exception });
             }
 
-            return Ok(new { message = $"Пользователь c id = {id} успешно удален" });
+            return Ok(new { error = false, message = $"Пользователь c id = {id} успешно удален" });
         }
     }
 }
