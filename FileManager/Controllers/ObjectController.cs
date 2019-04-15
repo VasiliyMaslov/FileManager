@@ -375,12 +375,15 @@ namespace FileManager.Controllers
                 if (CheckWriteAllow(obj) == false)
                     return Ok(new { error = true, message = "Недостаточно прав" });
 
-                string name_pattern = @"^[a-zA-Zа-яА-Я0-9\s]{2,50}$";
+                string name_pattern = @"^\w$";
+                string name_pattern1 = @"^{2,50}$";
 
                 if (string.IsNullOrWhiteSpace(objectDto.objectName))
-                    return Ok(new { error = true, message = "Вы забыли ввести название или оно содержит пробелы" });
+                    return Ok(new { error = true, message = "Вы забыли ввести название" });
 
                 if (!Regex.IsMatch(objectDto.objectName, name_pattern, RegexOptions.IgnoreCase))
+                    return Ok(new { error = true, message = "Имя может содержать буквы, цифры,знаки нижнего подчеркивания" });
+                if (!Regex.IsMatch(objectDto.objectName, name_pattern1, RegexOptions.IgnoreCase))
                     return Ok(new { error = true, message = "Допустимая длина от 2 до 50 символов" });
 
                 if (obj.type == true)
@@ -743,6 +746,22 @@ namespace FileManager.Controllers
                 }
 
                 return Ok(new { error = false, data });
+            }
+            catch (Exception e)
+            {
+                return BadRequest(new { error = true, e.Message });
+            }
+        }
+
+        [HttpGet, Route("this_user")]
+        [RequestSizeLimit(22548578304)] // ограничение веса запроса 21 гб
+        // текущий пользователь
+        public IActionResult ThisUsers()
+        {
+            try
+            {
+                
+                return Ok(new { error = false, user = int.Parse(User.Identity.Name) });
             }
             catch (Exception e)
             {
