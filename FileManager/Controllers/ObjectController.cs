@@ -210,12 +210,10 @@ namespace FileManager.Controllers
                 _context.Permissions.Add(permissions);
                 _context.SaveChanges();
 
-                var header = new{
-                    error = false,
-                    message = $"Директория {obj.objectName} успешно создана"
-                };
+               
+                    
 
-                var obj_data = new
+                var data = new
                 {
                     obj.objectId,
                     obj.objectName,
@@ -228,8 +226,9 @@ namespace FileManager.Controllers
 
                 return Ok(new
                 {
-                    header,
-                    obj_data
+                    error = false,
+                    message = $"Директория {obj.objectName} успешно создана",
+                    data
                 });
             }
             catch (Exception e)
@@ -393,10 +392,9 @@ namespace FileManager.Controllers
 
                 _context.Objects.Update(obj);
                 _context.SaveChanges();
-                return Ok(new
+
+                var data = new
                 {
-                    error = false,
-                    message = $"Данный объект переименован в {obj.objectName}",
                     obj.objectId,
                     obj.objectName,
                     obj.left,
@@ -405,6 +403,13 @@ namespace FileManager.Controllers
                     obj.type,
                     obj.binaryData,
                     obj.userId
+                };
+
+                return Ok(new
+                {
+                    error = false,
+                    message = $"Данный объект переименован в {obj.objectName}",
+                    data
                 });
             }
             catch (Exception e)
