@@ -402,7 +402,6 @@ namespace FileManager.Controllers
                     obj.right,
                     obj.level,
                     obj.type,
-                    obj.binaryData,
                     obj.userId
                 };
 
@@ -883,7 +882,7 @@ namespace FileManager.Controllers
                 {".doc", "application/vnd.ms-word"},
                 {".docx", "application/vnd.ms-word"},
                 {".xls", "application/vnd.ms-excel"},
-                {".xlsx", "application/vnd.openxmlformatsofficedocument.spreadsheetml.sheet"},
+                {".xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"},
                 {".png", "image/png"},
                 {".jpg", "image/jpeg"},
                 {".jpeg", "image/jpeg"},
@@ -901,7 +900,11 @@ namespace FileManager.Controllers
                 {".css", "text/css"},
                 {".html", "text/html"},
                 {".3gp", "video/3gpp"},
-                {".webm", "video/webm"}
+                {".webm", "video/webm"},
+                {".exe", "application/octet-stream"},
+                {".pptx", "application/vnd.openxmlformats-officedocument.presentationml.presentation"},
+                {".ppt", "application/vnd-mspowerpoint"},
+                {".apk", "application/vnd.android.package-archive"}
             };
             var ext = Path.GetExtension(path).ToLowerInvariant();
             return types[ext];
