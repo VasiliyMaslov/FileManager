@@ -375,12 +375,15 @@ namespace FileManager.Controllers
                 if (CheckWriteAllow(obj) == false)
                     return Ok(new { error = true, message = "Недостаточно прав" });
 
-                string name_pattern = @"^[a-zA-Zа-яА-Я0-9\s]{2,50}$";
+                string name_pattern = @"^\w$";
+                string name_pattern1 = @"^{2,50}$";
 
                 if (string.IsNullOrWhiteSpace(objectDto.objectName))
-                    return Ok(new { error = true, message = "Вы забыли ввести название или оно содержит пробелы" });
+                    return Ok(new { error = true, message = "Вы забыли ввести название" });
 
                 if (!Regex.IsMatch(objectDto.objectName, name_pattern, RegexOptions.IgnoreCase))
+                    return Ok(new { error = true, message = "Имя может содержать буквы, цифры,знаки нижнего подчеркивания" });
+                if (!Regex.IsMatch(objectDto.objectName, name_pattern1, RegexOptions.IgnoreCase))
                     return Ok(new { error = true, message = "Допустимая длина от 2 до 50 символов" });
 
                 if (obj.type == true)
