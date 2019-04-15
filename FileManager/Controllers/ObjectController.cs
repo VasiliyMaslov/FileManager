@@ -243,112 +243,105 @@ namespace FileManager.Controllers
         public IActionResult Relocate([FromBody]ObjectDto objectDto)
         {
             List<object> data = new List<object>();
-            try
+
+            var directory_this = _context.Objects
+            .Single(c => c.objectId == objectDto.objectId);
+
+            var directory_new = _context.Objects
+            .Single(c => c.objectId == objectDto.objId_new);
+
+            if (CheckWriteAllow(directory_new) == false)
+                return Ok(new { error = true, message = "Недостаточно прав" });
+
+            var catalog = from c in _context.Objects
+                          where directory_this.userId == c.userId &&
+                          c.left >= directory_this.left && c.right <= directory_this.right
+                          orderby c.right
+                          select c;
+
+            List<Objects> obj_relocate = new List<Objects>();
+            foreach (var x in catalog)
+                obj_relocate.Add(x);
+
+            var obj = from i in _context.Objects
+                      where directory_this.userId == i.userId
+                      select i;
+
+            List<Objects> obj_unrelocate = new List<Objects>();
+            foreach (var x in obj)
+                obj_unrelocate.Add(x);
+
+            foreach (var x in obj_relocate)
             {
-                var directory_this = _context.Objects
-                .Single(c => c.objectId == objectDto.objectId);
-
-                var directory_new = _context.Objects
-                .Single(c => c.objectId == objectDto.objId_new);
-
-                if (CheckWriteAllow(directory_new) == false)
-                    return Ok(new { error = true, message = "Недостаточно прав" });
-
-                var catalog = from c in _context.Objects
-                              where directory_this.userId == c.userId && 
-                              c.left >= directory_this.left && c.right <= directory_this.right
-                              orderby c.right
-                              select c;
-                
-                List<Objects> obj_relocate = new List<Objects>();
-                foreach (var x in catalog)
-                    obj_relocate.Add(x);
-
-                var obj = from i in _context.Objects
-                          where directory_this.userId == i.userId
-                          select i;
-
-                List<Objects> obj_unrelocate = new List<Objects>();
-                foreach (var x in obj)
-                    obj_unrelocate.Add(x);
-
-                foreach (var x in obj_relocate)
+                foreach (var t in obj_unrelocate)
                 {
-                    foreach (var t in obj_unrelocate)
+                    if (obj_relocate.Contains(t) == false)
                     {
-                        if (obj_relocate.Contains(t) == false)
-                        {
-                            if (t.left > x.right)
-                                t.left -= 2;
-                            if (t.right > x.right)
-                                t.right -= 2;
-                        }
-                    }
-
-                    foreach (var r in obj_relocate)
-                    {
-                        r.left -= 2;
-                        r.right -= 2;
+                        if (t.left > x.right)
+                            t.left -= 2;
+                        if (t.right > x.right)
+                            t.right -= 2;
                     }
                 }
 
-                obj_relocate = obj_relocate.OrderBy(c => c.left).ToList();
-                
-                List<Objects> obj_level = new List<Objects>();
-                int m = 0;
-                foreach (var x in obj_relocate)
+                foreach (var r in obj_relocate)
                 {
-                    if (m == 0)
-                        x.level = directory_new.level + 1;
-                    m = 2;
-                    obj_level.Add(x);
-                    foreach (var r in obj_relocate)
-                    {
-                        if (obj_level.Contains(r) == false && x.level != r.level)
-                            r.level = x.level + 1;
-                    }
+                    r.left -= 2;
+                    r.right -= 2;
                 }
-
-                foreach (var x in obj_relocate)
-                {
-                    x.left = directory_new.right;
-                    x.right = directory_new.right + 1;
-
-                    foreach (var t in obj_unrelocate)
-                    {
-                        if (t.left >= directory_new.right && t.objectId != x.objectId)
-                            t.left += 2;
-                        if (t.right >= directory_new.right && t.objectId != x.objectId)
-                            t.right += 2;
-                    }
-
-                    if (directory_new.level != x.level)
-                        directory_new = x;
-
-                    obj_unrelocate.Append(x);
-                }
-
-                _context.Objects.UpdateRange(obj_unrelocate);
-                _context.SaveChanges();
-
-
-                foreach (var x in obj_relocate)
-                {
-                    data.Add(new
-                    {
-                        x.objectName,
-                        x.left,
-                        x.right,
-                        x.level,
-                        weigh = x.binaryData.LongLength,
-                        x.userId
-                    });
-                }
-                
             }
-            catch (Exception e)
+
+            obj_relocate = obj_relocate.OrderBy(c => c.left).ToList();
+
+            List<Objects> obj_level = new List<Objects>();
+            int m = 0;
+            foreach (var x in obj_relocate)
             {
-                return BadRequest(new { error = true, e.Message });
+                if (m == 0)
+                    x.level = directory_new.level + 1;
+                m = 2;
+                obj_level.Add(x);
+                foreach (var r in obj_relocate)
+                {
+                    if (obj_level.Contains(r) == false && x.level != r.level)
+                        r.level = x.level + 1;
+                }
+            }
+
+            foreach (var x in obj_relocate)
+            {
+                x.left = directory_new.right;
+                x.right = directory_new.right + 1;
+
+                foreach (var t in obj_unrelocate)
+                {
+                    if (t.left >= directory_new.right && t.objectId != x.objectId)
+                        t.left += 2;
+                    if (t.right >= directory_new.right && t.objectId != x.objectId)
+                        t.right += 2;
+                }
+
+                if (directory_new.level != x.level)
+                    directory_new = x;
+
+                obj_unrelocate.Append(x);
+            }
+
+            _context.Objects.UpdateRange(obj_unrelocate);
+            _context.SaveChanges();
+
+
+            foreach (var x in obj_relocate)
+            {
+                data.Add(new
+                {
+                    x.objectName,
+                    x.left,
+                    x.right,
+                    x.level,
+                    weigh = x.binaryData.LongLength,
+                    x.userId
+                });
             }
 
             return Ok(new
@@ -500,17 +493,6 @@ namespace FileManager.Controllers
             try
             {
                 List<User> list_user = new List<User>();
-
-                foreach (var login in logins)
-                {
-                    var user_this = _context.Users
-                        .Single(up => login == up.login);
-
-                    var perm = from p in _context.Permissions
-                               where p.childUserId == user_this.userId
-                               select p;
-                    _context.Permissions.RemoveRange(perm);
-                }
                 
                 var obj_this = _context.Objects
                     .Single(ob => ob.objectId == objectId);
@@ -523,7 +505,7 @@ namespace FileManager.Controllers
                 .Single(up => int.Parse(User.Identity.Name) == up.userId);
 
                 var catalog = from c in _context.Objects
-                              where (c.left <= obj_this.left && c.right >= obj_this.right && c.level <= obj_this.level) ||
+                              where (c.left >= obj_this.left && c.right <= obj_this.right && c.level <= obj_this.level) ||
                               (c.left > obj_this.left && c.right < obj_this.right)
                               select c;
 
@@ -602,73 +584,65 @@ namespace FileManager.Controllers
         // Можно не указывать ТОЛЬКО при регистрации, т.е. пользователю итак вернется базовый каталог
         public IActionResult GetObjects(int objId)
         {
-            try
+            Objects this_dir = null;
+            if (objId == default(int))
             {
-                Objects this_dir = null;
-                if (objId == default(int))
-                {
-                    this_dir = _context.Objects
-                    .Single(c => (int.Parse(User.Identity.Name) == c.userId) &&
-                    (c.left == 0) && (c.level == 0));
-                }
-                else
-                {
-                    this_dir = _context.Objects.Single(c => c.objectId == objId);
-                }
-
-                if (CheckReadAllow(this_dir) == false)
-                    return Ok(new { error = true, message = "Недостаточно прав" });
-
-                var user = _context.Users.Single(u => u.userId == this_dir.userId);
-
-                var catalog = from c in _context.Objects
-                              where ((c.level == this_dir.level + 1) || (c.level == this_dir.level)) &&
-                              c.left >= this_dir.left && c.right <= this_dir.right && c.userId == this_dir.userId
-                              select c;
-                
-                List<object> data = new List<object>();
-                foreach (var x in catalog)
-                {
-                    if (x.type == true)
-                        data.Add(new
-                        {
-                            x.objectId,
-                            x.objectName,
-                            x.type,
-                            x.level,
-                            x.left,
-                            x.right,
-                            user.userId,
-                            user.login
-                        });
-
-                    if (x.type == false)
-                        data.Add(new
-                        {
-                            x.objectId,
-                            x.objectName,
-                            weight = x.binaryData.LongLength,
-                            x.type,
-                            x.level,
-                            x.left,
-                            x.right,
-                            user.userId,
-                            user.login
-                        });
-                }
-                
-                return Ok(new { error = false, data });
-            }    
-            catch (Exception e)
-            {
-                return BadRequest(new { error = true, e.Message });
+                this_dir = _context.Objects
+                .Single(c => (int.Parse(User.Identity.Name) == c.userId) &&
+                (c.left == 0) && (c.level == 0));
             }
+            else
+            {
+                this_dir = _context.Objects.Single(c => c.objectId == objId);
+            }
+
+            if (CheckReadAllow(this_dir) == false)
+                return Ok(new { error = true, message = "Недостаточно прав" });
+
+            var user = _context.Users.Single(u => u.userId == this_dir.userId);
+
+            var catalog = from c in _context.Objects
+                          where ((c.level == this_dir.level + 1) || (c.level == this_dir.level)) &&
+                          c.left >= this_dir.left && c.right <= this_dir.right && c.userId == this_dir.userId
+                          select c;
+
+            List<object> data = new List<object>();
+            foreach (var x in catalog)
+            {
+                if (x.type == true)
+                    data.Add(new
+                    {
+                        x.objectId,
+                        x.objectName,
+                        x.type,
+                        x.level,
+                        x.left,
+                        x.right,
+                        user.userId,
+                        user.login
+                    });
+
+                if (x.type == false)
+                    data.Add(new
+                    {
+                        x.objectId,
+                        x.objectName,
+                        weight = x.binaryData.LongLength,
+                        x.type,
+                        x.level,
+                        x.left,
+                        x.right,
+                        user.userId,
+                        user.login
+                    });
+            }
+
+            return Ok(new { error = false, data });
+
         }
 
         [HttpGet, Route("shared_objects")]
         [RequestSizeLimit(22548578304)] // ограничение веса запроса 21 гб
-        // При открытии какой-либо директории, должен передаваться ее objId.
-        // Можно не указывать ТОЛЬКО при регистрации, т.е. пользователю итак вернется базовый каталог
         public IActionResult Shared()
         {
             try
