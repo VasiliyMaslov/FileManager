@@ -753,6 +753,22 @@ namespace FileManager.Controllers
             }
         }
 
+        [HttpGet, Route("this_user")]
+        [RequestSizeLimit(22548578304)] // ограничение веса запроса 21 гб
+        // текущий пользователь
+        public IActionResult ThisUsers()
+        {
+            try
+            {
+                
+                return Ok(new { error = false, user = int.Parse(User.Identity.Name) });
+            }
+            catch (Exception e)
+            {
+                return BadRequest(new { error = true, e.Message });
+            }
+        }
+
         [HttpDelete, Route("remove_permissions")]
         [RequestSizeLimit(22548578304)] // ограничение веса запроса 21 гб
         // принимает login, objectId (тот, на который права нужно отозвать
