@@ -374,14 +374,15 @@ namespace FileManager.Controllers
                 if (CheckWriteAllow(obj) == false)
                     return Ok(new { error = true, message = "Недостаточно прав" });
 
-                string name_pattern = @"^\w$";
-                string name_pattern1 = @"^{2,50}$";
+                string name_pattern = @"[\%\/\\\&\?\,\'\;\:\!\-]";
+                string name_pattern1 = @"^([^\%\/\\\&\?\,\'\;\:\!\-]){2,50}$";
+
 
                 if (string.IsNullOrWhiteSpace(objectDto.objectName))
                     return Ok(new { error = true, message = "Вы забыли ввести название" });
 
-                if (!Regex.IsMatch(objectDto.objectName, name_pattern, RegexOptions.IgnoreCase))
-                    return Ok(new { error = true, message = "Имя может содержать буквы, цифры,знаки нижнего подчеркивания" });
+                if (Regex.IsMatch(objectDto.objectName, name_pattern))
+                    return Ok(new { error = true, message = "Название содержит запрещенные символы" });
                 if (!Regex.IsMatch(objectDto.objectName, name_pattern1, RegexOptions.IgnoreCase))
                     return Ok(new { error = true, message = "Допустимая длина от 2 до 50 символов" });
 
@@ -765,8 +766,21 @@ namespace FileManager.Controllers
         {
             try
             {
-                
-                return Ok(new { error = false, user = int.Parse(User.Identity.Name) });
+                var user_1 = _context.Users.Single(up => int.Parse(User.Identity.Name) == up.userId);
+                var error = new { error = false };
+                var user = new
+                {
+                    user_1.userId,
+                    user_1.login,
+                    user_1.name,
+                    user_1.secondName
+                };
+
+                return Ok(new
+                {
+                    error,
+                    user
+                });
             }
             catch (Exception e)
             {
