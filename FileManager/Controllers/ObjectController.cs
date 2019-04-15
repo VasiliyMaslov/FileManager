@@ -639,6 +639,7 @@ namespace FileManager.Controllers
                             x.level,
                             x.left,
                             x.right,
+                            user.userId,
                             user.login
                         });
 
@@ -652,6 +653,7 @@ namespace FileManager.Controllers
                             x.level,
                             x.left,
                             x.right,
+                            user.userId,
                             user.login
                         });
                 }
