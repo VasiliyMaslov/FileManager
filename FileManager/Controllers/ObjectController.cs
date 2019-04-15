@@ -210,10 +210,13 @@ namespace FileManager.Controllers
                 _context.Permissions.Add(permissions);
                 _context.SaveChanges();
 
-                return Ok(new
-                {
+                var header = new{
                     error = false,
-                    message = $"Директория {obj.objectName} успешно создана",
+                    message = $"Директория {obj.objectName} успешно создана"
+                };
+
+                var obj_data = new
+                {
                     obj.objectId,
                     obj.objectName,
                     obj.type,
@@ -221,6 +224,12 @@ namespace FileManager.Controllers
                     obj.right,
                     obj.level,
                     obj.userId
+                };
+
+                return Ok(new
+                {
+                    header,
+                    obj_data
                 });
             }
             catch (Exception e)
@@ -404,13 +413,13 @@ namespace FileManager.Controllers
         [HttpDelete, Route("delete")]
         [RequestSizeLimit(22548578304)] // ограничение веса запроса 21 гб
         // принимает objectId (либо файл, либо директория)
-        public IActionResult Delete([FromBody]ObjectDto objectDto)
+        public IActionResult Delete(int objectId)
         {
             try
             {
                 //_logger.LogError($"111111111111111111111111   {obj.Count()}");
                 var directory_this = _context.Objects
-                    .Single(c => c.objectId == objectDto.objectId);
+                    .Single(c => c.objectId == objectId);
 
                 if (CheckWriteAllow(directory_this) == false)
                     return Ok(new { error = true, message = "Недостаточно прав" });
@@ -745,15 +754,15 @@ namespace FileManager.Controllers
         [RequestSizeLimit(22548578304)] // ограничение веса запроса 21 гб
         // принимает login, objectId (тот, на который права нужно отозвать
         // забирает любые права на объект и дочерние объекты у данного пользователя
-        public IActionResult RemovePermissions([FromBody]UserDto userDto)
+        public IActionResult RemovePermissions(int objectId, string login)
         {
             try
             {
                 var user_this = _context.Users
-                .Single(up => userDto.login == up.login);
+                .Single(up => login == up.login);
 
                 var obj_this = _context.Objects
-                .Single(ob => ob.objectId == userDto.objectId);
+                .Single(ob => ob.objectId == objectId);
 
                 if (int.Parse(User.Identity.Name) != obj_this.userId)
                     return Ok(new { error = true, message = "Недостаточно прав" });
@@ -775,7 +784,7 @@ namespace FileManager.Controllers
                 return Ok(new
                 {
                     error = false,
-                    message = $"У пользователя с логином {userDto.login} были удалены права на {obj_this.objectName} и дочерние объекты"});
+                    message = $"У пользователя с логином {login} были удалены права на {obj_this.objectName} и дочерние объекты"});
             }
             catch (Exception e)
             {
