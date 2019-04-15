@@ -622,8 +622,8 @@ namespace FileManager.Controllers
                 var user = _context.Users.Single(u => u.userId == this_dir.userId);
 
                 var catalog = from c in _context.Objects
-                              where c.level >= this_dir.level && c.left >= this_dir.left &&
-                              c.right <= this_dir.right && c.userId == this_dir.userId
+                              where ((c.level == this_dir.level + 1) || (c.level == this_dir.level)) &&
+                              c.left >= this_dir.left && c.right <= this_dir.right && c.userId == this_dir.userId
                               select c;
                 
                 List<object> data = new List<object>();
