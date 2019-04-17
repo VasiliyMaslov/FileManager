@@ -1,6 +1,6 @@
-﻿using Microsoft.AspNetCore; using Microsoft.AspNetCore.Hosting;  
-namespace FileManager {
+﻿using Microsoft.AspNetCore; using Microsoft.AspNetCore.Hosting;
 
+namespace FileManager {
     public class Program
     {
 

@@ -4,12 +4,12 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Linq;
 using System.Security.Claims;
 using System.Text;
-using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using FileManager.Entities;
 using FileManager.Helpers;
 using Microsoft.Extensions.Logging;
 using System.Text.RegularExpressions;
+using Microsoft.Extensions.Configuration;
 
 namespace FileManager.Services
 {
@@ -27,14 +27,14 @@ namespace FileManager.Services
     public class UserService : IUserService
     {
         private ApplicationContext _context;
-        private readonly AppSettings _appSettings;
         private readonly ILogger _logger;
+        private IConfiguration _config;
 
-        public UserService(ApplicationContext context, IOptions<AppSettings> appSettings, ILogger<UserService> logger)
+        public UserService(ApplicationContext context, ILogger<UserService> logger, IConfiguration config)
         {
-            _appSettings = appSettings.Value;
             _context = context;
             _logger = logger;
+            _config = config;
         }
 
         public User Authenticate(string login, string password, out string exception)
@@ -69,7 +69,7 @@ namespace FileManager.Services
             try
             {
                 var tokenHandler = new JwtSecurityTokenHandler();
-                var key = Encoding.ASCII.GetBytes(_appSettings.Secret);
+                var key = Encoding.ASCII.GetBytes(_config["AppSettings:Secret"]);
                 var tokenDescriptor = new SecurityTokenDescriptor
                 {
                     Subject = new ClaimsIdentity(new Claim[]
