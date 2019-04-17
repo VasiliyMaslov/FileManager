@@ -95,7 +95,6 @@ namespace FileManager.Controllers
                     }
 
                     _context.Objects.Add(obj);
-                    //_context.SaveChanges();
 
                     var permissions = new Permissions
                     {
@@ -209,9 +208,6 @@ namespace FileManager.Controllers
 
                 _context.Permissions.Add(permissions);
                 _context.SaveChanges();
-
-               
-                    
 
                 var data = new
                 {
@@ -472,9 +468,11 @@ namespace FileManager.Controllers
                 _context.Objects.RemoveRange(obj_delete);
                 _context.SaveChanges();
 
-                return Ok(
-                    new { error = false, message = $"Объект или группа объектов успешно удалены" }
-                );
+                return Ok(new
+                {
+                    error = false,
+                    message = $"Объект или группа объектов успешно удалены"
+                });
             }
             catch (Exception e)
             {
@@ -505,11 +503,9 @@ namespace FileManager.Controllers
                 .Single(up => int.Parse(User.Identity.Name) == up.userId);
 
                 var catalog = from c in _context.Objects
-                              where (c.left >= obj_this.left && c.right <= obj_this.right && c.level <= obj_this.level) ||
-                              (c.left > obj_this.left && c.right < obj_this.right)
+                              where (c.left >= obj_this.left) && (c.right <= obj_this.right) &&
+                              (c.userId == user_parent.userId)
                               select c;
-
-                List<Permissions> permissions = new List<Permissions>();
 
                 string users = null;
 
@@ -527,15 +523,27 @@ namespace FileManager.Controllers
 
                     foreach (var c in catalog)
                     {
-                        permissions.Add(
-                            new Permissions
-                            {
-                                parentUserId = int.Parse(User.Identity.Name),
-                                childUserId = user_this.userId,
-                                read = read,
-                                write = write,
-                                objectId = c.objectId
-                            });
+                        var perm = _context.Permissions.SingleOrDefault(x => x.parentUserId == int.Parse(User.Identity.Name) &&
+                        x.childUserId == user_this.userId && x.objectId == c.objectId);
+
+                        if (perm == null)
+                        {
+                            _context.Permissions.Add(
+                                new Permissions
+                                {
+                                    parentUserId = int.Parse(User.Identity.Name),
+                                    childUserId = user_this.userId,
+                                    read = read,
+                                    write = write,
+                                    objectId = c.objectId
+                                });
+                        }
+                        else
+                        {
+                            perm.read = read;
+                            perm.write = write;
+                            _context.Permissions.Update(perm);
+                        }
                     }
 
                     list_user.Add(user_this);
@@ -560,8 +568,7 @@ namespace FileManager.Controllers
                     if (i < logins.Count() - 1)
                         users += ", ";
                 }
-
-                _context.Permissions.AddRange(permissions);
+                
                 _context.SaveChanges();
 
                 return Ok(
@@ -592,9 +599,7 @@ namespace FileManager.Controllers
                 (c.left == 0) && (c.level == 0));
             }
             else
-            {
                 this_dir = _context.Objects.Single(c => c.objectId == objId);
-            }
 
             if (CheckReadAllow(this_dir) == false)
                 return Ok(new { error = true, message = "Недостаточно прав" });
@@ -781,23 +786,25 @@ namespace FileManager.Controllers
                     return Ok(new { error = true, message = "Недостаточно прав" });
 
                 var catalog = from c in _context.Objects
-                              where c.left >= obj_this.left && c.right <= obj_this.right
+                              where (c.left >= obj_this.left && c.right <= obj_this.right && c.userId == obj_this.userId)
                               select c;
-                List<Permissions> permissions = new List<Permissions>();
+
+                var t = catalog;
 
                 foreach (var x in catalog)
                 {
-                    var perm = _context.Permissions.Single(p => p.childUserId == user_this.userId && p.objectId == x.objectId);
-                    permissions.Add(perm);
+                    var perm = _context.Permissions.Single(p => p.childUserId == user_this.userId &&
+                    p.objectId == x.objectId && p.childUserId != p.parentUserId);
+                    _context.Permissions.Remove(perm);
                 }
 
-                _context.Permissions.RemoveRange(permissions);
                 _context.SaveChanges();
 
                 return Ok(new
                 {
                     error = false,
-                    message = $"У пользователя с логином {login} были удалены права на {obj_this.objectName} и дочерние объекты"});
+                    message = $"У пользователя с логином {login} были удалены права на {obj_this.objectName} и дочерние объекты"
+                });
             }
             catch (Exception e)
             {
