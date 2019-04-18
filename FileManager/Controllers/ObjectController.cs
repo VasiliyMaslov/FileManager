@@ -552,13 +552,14 @@ namespace FileManager.Controllers
                 List<object> data = new List<object>();
                 foreach (var x in list_user)
                 {
-
                     data.Add(new
                     {
                         x.userId,
                         x.login,
                         x.name,
-                        x.secondName
+                        x.secondName,
+                        write,
+                        read
                     });
                 }
 
@@ -624,7 +625,13 @@ namespace FileManager.Controllers
                         x.left,
                         x.right,
                         user.userId,
-                        user.login
+                        user.login,
+                        _context.Permissions.SingleOrDefault(c => c.parentUserId == x.userId &&
+                        c.childUserId == int.Parse(User.Identity.Name) && c.objectId == x.objectId &&
+                        c.parentUserId != c.childUserId).write,
+                        _context.Permissions.SingleOrDefault(c => c.parentUserId == x.userId &&
+                        c.childUserId == int.Parse(User.Identity.Name) && c.objectId == x.objectId &&
+                        c.parentUserId != c.childUserId).read
                     });
 
                 if (x.type == false)
@@ -638,7 +645,13 @@ namespace FileManager.Controllers
                         x.left,
                         x.right,
                         user.userId,
-                        user.login
+                        user.login,
+                        _context.Permissions.SingleOrDefault(c => c.parentUserId == x.userId &&
+                        c.childUserId == int.Parse(User.Identity.Name) && c.objectId == x.objectId &&
+                        c.parentUserId != c.childUserId).write,
+                        _context.Permissions.SingleOrDefault(c => c.parentUserId == x.userId &&
+                        c.childUserId == int.Parse(User.Identity.Name) && c.objectId == x.objectId &&
+                        c.parentUserId != c.childUserId).read
                     });
             }
 
@@ -720,18 +733,22 @@ namespace FileManager.Controllers
                                  where p.objectId == objId
                                  select p;
 
-                List<object> data = new List<object>();
+                List<object> childs = new List<object>();
                 foreach (var x in permission)
                 {
-                    data.Add(new
+                    if (_context.Users.SingleOrDefault(c => (c.userId == x.childUserId) &&
+                    (x.parentUserId != x.childUserId)) != null)
+                    childs.Add(new
                     {
-                        _context.Users.Single(c => c.userId == x.childUserId).login,
+                        _context.Users.Single(c => (c.userId == x.childUserId) && (x.parentUserId != x.childUserId)).login,
                         x.read,
                         x.write
                     });
                 }
 
-                return Ok(new { error = false, data });
+                var parent = _context.Users.Single(c => c.userId == this_dir.userId).login;
+
+                return Ok(new { error = false, childs, parent });
             }
             catch (Exception e)
             {
