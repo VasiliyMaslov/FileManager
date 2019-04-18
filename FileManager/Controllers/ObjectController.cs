@@ -625,13 +625,7 @@ namespace FileManager.Controllers
                         x.left,
                         x.right,
                         user.userId,
-                        user.login,
-                        _context.Permissions.SingleOrDefault(c => c.parentUserId == x.userId &&
-                        c.childUserId == int.Parse(User.Identity.Name) && c.objectId == x.objectId &&
-                        c.parentUserId != c.childUserId).write,
-                        _context.Permissions.SingleOrDefault(c => c.parentUserId == x.userId &&
-                        c.childUserId == int.Parse(User.Identity.Name) && c.objectId == x.objectId &&
-                        c.parentUserId != c.childUserId).read
+                        user.login
                     });
 
                 if (x.type == false)
@@ -645,13 +639,7 @@ namespace FileManager.Controllers
                         x.left,
                         x.right,
                         user.userId,
-                        user.login,
-                        _context.Permissions.SingleOrDefault(c => c.parentUserId == x.userId &&
-                        c.childUserId == int.Parse(User.Identity.Name) && c.objectId == x.objectId &&
-                        c.parentUserId != c.childUserId).write,
-                        _context.Permissions.SingleOrDefault(c => c.parentUserId == x.userId &&
-                        c.childUserId == int.Parse(User.Identity.Name) && c.objectId == x.objectId &&
-                        c.parentUserId != c.childUserId).read
+                        user.login
                     });
             }
 
@@ -661,55 +649,114 @@ namespace FileManager.Controllers
 
         [HttpGet, Route("shared_objects")]
         [RequestSizeLimit(22548578304)] // ограничение веса запроса 21 гб
-        public IActionResult Shared()
+        public IActionResult Shared(int level)
         {
             try
             {
-                List<Objects> collection = new List<Objects>();
-                var catalog = from c in _context.Permissions
-                              where c.childUserId == int.Parse(User.Identity.Name) && c.childUserId != c.parentUserId
-                              select c;
-
-                foreach (var x in catalog)
+                if (level == default(int))
                 {
-                    collection.Add(_context.Objects
-                    .Single(c => c.objectId == x.objectId));
-                }
+                    List<Objects> collection = new List<Objects>();
+                    var catalog = from c in _context.Permissions
+                                  where c.childUserId == int.Parse(User.Identity.Name) && c.childUserId != c.parentUserId
+                                  select c;
 
-                List<object> data = new List<object>();
-                foreach (var x in collection)
+                    foreach (var x in catalog)
+                    {
+                        collection.Add(_context.Objects
+                        .Single(c => c.objectId == x.objectId));
+                    }
+                    int i = collection.Min(c => c.level);
+                    collection.RemoveAll(x => x.level != (i + 1));
+
+                    List<object> data = new List<object>();
+                    foreach (var x in collection)
+                    {
+                        if (x.type == true)
+                            data.Add(new
+                            {
+                                x.objectId,
+                                x.objectName,
+                                x.type,
+                                x.level,
+                                parent = x.userId,
+                                parent_login = _context.Users.Single(c => c.userId == x.userId).login,
+                                _context.Permissions.Single(c => c.parentUserId == x.userId &&
+                                c.childUserId == int.Parse(User.Identity.Name) && c.objectId == x.objectId).write,
+                                _context.Permissions.Single(c => c.parentUserId == x.userId &&
+                                c.childUserId == int.Parse(User.Identity.Name) && c.objectId == x.objectId).read
+                            });
+
+                        if (x.type == false)
+                            data.Add(new
+                            {
+                                x.objectId,
+                                x.objectName,
+                                weight = x.binaryData.LongLength,
+                                x.type,
+                                x.level,
+                                parent = x.userId,
+                                parent_login = _context.Users.Single(c => c.userId == x.userId).login,
+                                _context.Permissions.Single(c => c.parentUserId == x.userId &&
+                                c.childUserId == int.Parse(User.Identity.Name) && c.objectId == x.objectId).write,
+                                _context.Permissions.Single(c => c.parentUserId == x.userId &&
+                                c.childUserId == int.Parse(User.Identity.Name) && c.objectId == x.objectId).read
+                            });
+                    }
+
+                    return Ok(new { error = false, data });
+                }
+                else
                 {
-                    if (x.type == true)
-                        data.Add(new
-                        {
-                            x.objectId,
-                            x.objectName,
-                            x.type,
-                            parent = x.userId,
-                            parent_login = _context.Users.Single(c => c.userId == x.userId).login,
-                            _context.Permissions.Single(c => c.parentUserId == x.userId &&
-                            c.childUserId == int.Parse(User.Identity.Name) && c.objectId == x.objectId).write,
-                            _context.Permissions.Single(c => c.parentUserId == x.userId &&
-                            c.childUserId == int.Parse(User.Identity.Name) && c.objectId == x.objectId).read
-                        });
+                    List<Objects> collection = new List<Objects>();
+                    var catalog = from c in _context.Permissions
+                                  where c.childUserId == int.Parse(User.Identity.Name) && c.childUserId != c.parentUserId
+                                  select c;
 
-                    if (x.type == false)
-                        data.Add(new
-                        {
-                            x.objectId,
-                            x.objectName,
-                            weight = x.binaryData.LongLength,
-                            x.type,
-                            parent = x.userId,
-                            parent_login = _context.Users.Single(c => c.userId == x.userId),
-                            _context.Permissions.Single(c => c.parentUserId == x.userId &&
-                            c.childUserId == int.Parse(User.Identity.Name) && c.objectId == x.objectId).write,
-                            _context.Permissions.Single(c => c.parentUserId == x.userId &&
-                            c.childUserId == int.Parse(User.Identity.Name) && c.objectId == x.objectId).read
-                        });
+                    foreach (var x in catalog)
+                    {
+                        collection.Add(_context.Objects
+                        .Single(c => c.objectId == x.objectId));
+                    }
+
+                    collection.RemoveAll(x => x.level != (level + 1));
+
+                    List<object> data = new List<object>();
+                    foreach (var x in collection)
+                    {
+                        if (x.type == true)
+                            data.Add(new
+                            {
+                                x.objectId,
+                                x.objectName,
+                                x.type,
+                                x.level,
+                                parent = x.userId,
+                                parent_login = _context.Users.Single(c => c.userId == x.userId).login,
+                                _context.Permissions.Single(c => c.parentUserId == x.userId &&
+                                c.childUserId == int.Parse(User.Identity.Name) && c.objectId == x.objectId).write,
+                                _context.Permissions.Single(c => c.parentUserId == x.userId &&
+                                c.childUserId == int.Parse(User.Identity.Name) && c.objectId == x.objectId).read
+                            });
+
+                        if (x.type == false)
+                            data.Add(new
+                            {
+                                x.objectId,
+                                x.objectName,
+                                weight = x.binaryData.LongLength,
+                                x.type,
+                                x.level,
+                                parent = x.userId,
+                                parent_login = _context.Users.Single(c => c.userId == x.userId).login,
+                                _context.Permissions.Single(c => c.parentUserId == x.userId &&
+                                c.childUserId == int.Parse(User.Identity.Name) && c.objectId == x.objectId).write,
+                                _context.Permissions.Single(c => c.parentUserId == x.userId &&
+                                c.childUserId == int.Parse(User.Identity.Name) && c.objectId == x.objectId).read
+                            });
+                    }
+
+                    return Ok(new { error = false, data });
                 }
-
-                return Ok(new { error = false, data });
             }
             catch (Exception e)
             {
