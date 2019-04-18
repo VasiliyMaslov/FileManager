@@ -625,7 +625,13 @@ namespace FileManager.Controllers
                         x.left,
                         x.right,
                         user.userId,
-                        user.login
+                        user.login,
+                        _context.Permissions.SingleOrDefault(c => c.parentUserId == x.userId &&
+                        c.childUserId == int.Parse(User.Identity.Name) && c.objectId == x.objectId &&
+                        c.parentUserId != c.childUserId).write,
+                        _context.Permissions.SingleOrDefault(c => c.parentUserId == x.userId &&
+                        c.childUserId == int.Parse(User.Identity.Name) && c.objectId == x.objectId &&
+                        c.parentUserId != c.childUserId).read
                     });
 
                 if (x.type == false)
@@ -639,7 +645,13 @@ namespace FileManager.Controllers
                         x.left,
                         x.right,
                         user.userId,
-                        user.login
+                        user.login,
+                        _context.Permissions.SingleOrDefault(c => c.parentUserId == x.userId &&
+                        c.childUserId == int.Parse(User.Identity.Name) && c.objectId == x.objectId &&
+                        c.parentUserId != c.childUserId).write,
+                        _context.Permissions.SingleOrDefault(c => c.parentUserId == x.userId &&
+                        c.childUserId == int.Parse(User.Identity.Name) && c.objectId == x.objectId &&
+                        c.parentUserId != c.childUserId).read
                     });
             }
 
