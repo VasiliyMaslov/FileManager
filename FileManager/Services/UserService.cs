@@ -215,8 +215,8 @@ namespace FileManager.Services
                 {
                     CreatePasswordHash(password, out byte[] passwordHash, out byte[] HashKey, out string localExpt);
 
-                    if (localExpt != null)
-                        exception = localExpt;
+                    if (localExpt != null) 
+                        exception = localExpt; 
 
                     if (exception == null)
                     {
