@@ -335,7 +335,7 @@ namespace FileManager.Controllers
                     x.left,
                     x.right,
                     x.level,
-                    weigh = x.binaryData.LongLength,
+                    weigh = x.binaryData == null ? default(long) : x.binaryData.LongLength,
                     x.userId
                 });
             }
