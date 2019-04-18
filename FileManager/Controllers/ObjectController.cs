@@ -649,11 +649,12 @@ namespace FileManager.Controllers
 
         [HttpGet, Route("shared_objects")]
         [RequestSizeLimit(22548578304)] // ограничение веса запроса 21 гб
-        public IActionResult Shared(int level)
+        public IActionResult Shared(int objId)
         {
             try
             {
-                if (level == default(int))
+                var this_obj = _context.Objects.SingleOrDefault(c => c.objectId == objId);
+                if (this_obj == null)
                 {
                     List<Objects> collection = new List<Objects>();
                     var catalog = from c in _context.Permissions
@@ -666,7 +667,7 @@ namespace FileManager.Controllers
                         .Single(c => c.objectId == x.objectId));
                     }
                     int i = collection.Min(c => c.level);
-                    collection.RemoveAll(x => x.level != (i + 1));
+                    collection.RemoveAll(x => x.level != i);
 
                     List<object> data = new List<object>();
                     foreach (var x in collection)
@@ -718,7 +719,7 @@ namespace FileManager.Controllers
                         .Single(c => c.objectId == x.objectId));
                     }
 
-                    collection.RemoveAll(x => x.level != (level + 1));
+                    collection.RemoveAll(x => x.level != (this_obj.level + 1));
 
                     List<object> data = new List<object>();
                     foreach (var x in collection)
