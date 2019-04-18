@@ -651,6 +651,8 @@ namespace FileManager.Controllers
         [RequestSizeLimit(22548578304)] // ограничение веса запроса 21 гб
         public IActionResult Shared(int objId)
         {
+            List<object> data = new List<object>();
+
             try
             {
                 var this_obj = _context.Objects.SingleOrDefault(c => c.objectId == objId);
@@ -669,7 +671,6 @@ namespace FileManager.Controllers
                     int i = collection.Min(c => c.level);
                     collection.RemoveAll(x => x.level != i);
 
-                    List<object> data = new List<object>();
                     foreach (var x in collection)
                     {
                         if (x.type == true)
@@ -720,8 +721,7 @@ namespace FileManager.Controllers
                     }
 
                     collection.RemoveAll(x => x.level != (this_obj.level + 1));
-
-                    List<object> data = new List<object>();
+                    
                     foreach (var x in collection)
                     {
                         if (x.type == true)
@@ -759,9 +759,14 @@ namespace FileManager.Controllers
                     return Ok(new { error = false, data });
                 }
             }
-            catch (Exception e)
+
+            catch (Exception ex)
             {
-                return BadRequest(new { error = true, e.Message });
+                InvalidOperationException e = new InvalidOperationException();
+                if (ex.GetType() == e.GetType())
+                    return Ok(new { error = false, data });
+                else
+                    return BadRequest(new { error = true, e.Message});
             }
         }
 
