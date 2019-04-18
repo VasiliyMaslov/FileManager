@@ -331,11 +331,12 @@ namespace FileManager.Controllers
             {
                 data.Add(new
                 {
+                    x.objectId,
                     x.objectName,
                     x.left,
                     x.right,
                     x.level,
-                    weigh = x.binaryData == null ? default(long) : x.binaryData.LongLength,
+                    weight = x.binaryData == null ? default(long) : x.binaryData.LongLength,
                     x.userId
                 });
             }
