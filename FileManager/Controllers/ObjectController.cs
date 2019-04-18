@@ -805,7 +805,11 @@ namespace FileManager.Controllers
             }
             catch (Exception e)
             {
-                return BadRequest(new { error = true, e.Message });
+                InvalidOperationException ex = new InvalidOperationException();
+                if (e.GetType() == e.GetType())
+                    return Ok(new { error = false, message = "Пользователь с указанным логином не найден" });
+                else
+                    return BadRequest(new { error = true, e.Message });
             }
         }
 

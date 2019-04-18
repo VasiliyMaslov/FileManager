@@ -44,6 +44,7 @@ namespace FileManager.Controllers
             return Ok(new
             {
                 error = false,
+                message = $"Вход выполнен",
                 user.userId,
                 user.login,
                 user.name,
@@ -78,6 +79,7 @@ namespace FileManager.Controllers
             return Ok(new
             {
                 error = false,
+                message = $"Регистрация прошла успешно",
                 user.userId,
                 user.login,
                 user.name,
