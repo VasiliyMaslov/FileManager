@@ -764,7 +764,7 @@ namespace FileManager.Controllers
             {
                 InvalidOperationException e = new InvalidOperationException();
                 if (ex.GetType() == e.GetType())
-                    return Ok(new { error = false, data });
+                    return Ok(new { error = false, data }); 
                 else
                     return BadRequest(new { error = true, e.Message});
             }
